@@ -325,3 +325,76 @@ main.enter .grid>:nth-child(n+4){animation-delay:.14s}
 @media (display-mode: standalone){ .mtop{padding-top:calc(10px + env(safe-area-inset-top))} }
 .install-steps{margin:8px 0 0;padding-left:20px;font-size:14px}
 .install-steps li{margin:4px 0}
+
+/* ---------- Version 4: Gesprächsversion ---------- */
+.nav-sec{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;padding:16px 12px 6px}
+.nav-sec:first-child{padding-top:4px}
+.newbtn{margin:0 0 6px;padding:11px 14px;border-radius:14px;box-shadow:0 4px 14px color-mix(in srgb,var(--accent) 30%,transparent)}
+
+/* Untere Navigation mit Plus */
+.bnav{align-items:center}
+.bnav button{position:relative}
+.bnav .fab{flex:none;width:54px;height:54px;border-radius:18px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;padding:0;margin:-22px 4px 0;box-shadow:0 8px 20px color-mix(in srgb,var(--accent) 40%,transparent);border:3px solid var(--bg)}
+.bnav .fab svg{width:26px;height:26px}
+.bnav .fab:active{transform:scale(.95)}
+.bnav .dot{position:absolute;top:6px;right:calc(50% - 16px);width:8px;height:8px;border-radius:50%;background:var(--warm);border:2px solid var(--surface)}
+
+/* Kacheln */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (min-width:760px){ .tiles{grid-template-columns:repeat(4,1fr)} }
+.qtiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:var(--shadow);transition:border-color .15s,transform .15s}
+.tile:hover{border-color:var(--accent);transform:translateY(-1px)}
+.tile .card-h{margin-bottom:6px}
+.tile b{font-size:15.5px;display:flex;align-items:center;gap:6px}
+.qtiles .tile{padding:16px;align-items:center;text-align:center}
+
+/* Einführung */
+.intro{text-align:center;padding:4px 4px 0}
+.intro .empty-art{width:180px;height:126px;margin:4px auto 6px;display:block}
+.intro h2{font-size:22px;margin:4px 0 8px;letter-spacing:-.02em}
+.intro p{max-width:400px;margin:0 auto}
+.intro-avs{justify-content:center;margin-top:14px;gap:4px}
+
+/* Ferien und Feiertage */
+.xs-pill{font-size:11px;padding:2px 8px;margin-bottom:4px}
+.dcol.offday{background:color-mix(in srgb,var(--gold-soft) 45%,var(--surface))}
+
+/* Zeitraster */
+.tgrid{display:none}
+@media (min-width:1280px){
+  .week{display:none}
+  .tgrid{display:block;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);overflow:hidden}
+}
+.tg-head,.tg-all,.tg-body{display:grid;grid-template-columns:56px repeat(7,minmax(0,1fr))}
+.tg-head{border-bottom:1px solid var(--line)}
+.tg-dh{padding:10px 10px 8px;display:flex;align-items:baseline;gap:6px;border-left:1px solid var(--line)}
+.tg-dh span{font-size:12.5px;color:var(--muted);font-weight:650}
+.tg-dh b{font-size:20px;font-weight:780;letter-spacing:-.03em}
+.tg-dh.today b,.tg-dh.today span{color:var(--accent)}
+.tg-all{border-bottom:1px solid var(--line);min-height:38px}
+.tg-lbl{font-size:10.5px;color:var(--muted);padding:8px 6px;text-align:right}
+.tg-ad{border-left:1px solid var(--line);padding:6px}
+.tg-ad .ev{margin-top:0;margin-bottom:4px}
+.tg-body{position:relative;max-height:620px;overflow-y:auto}
+.tg-hours{display:flex;flex-direction:column}
+.tg-h{height:46px;font-size:11px;color:var(--muted);text-align:right;padding:0 8px;transform:translateY(-7px);font-variant-numeric:tabular-nums}
+.tg-h:first-child{transform:none}
+.tg-col{position:relative;border-left:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px);background-size:100% 46px;height:690px}
+.tg-col.today{background-color:color-mix(in srgb,var(--accent-soft) 40%,transparent)}
+.tg-col.offday,.tg-ad.offday{background-color:color-mix(in srgb,var(--gold-soft) 35%,transparent)}
+.tg-ev{position:absolute;left:0;width:100%;padding:4px 7px;border-left:4px solid var(--line);background:var(--surface2);border-radius:4px 10px 10px 4px;overflow:hidden;cursor:pointer;font-size:12px;box-shadow:0 0 0 2px var(--surface)}
+.tg-ev:hover{background:var(--surface3);z-index:2}
+.tg-ev small{display:block;color:var(--muted);font-variant-numeric:tabular-nums;font-size:11px}
+.tg-ev b{display:block;font-weight:650;line-height:1.25;hyphens:auto;-webkit-hyphens:auto}
+.tg-ev .avs{margin-top:3px}
+.tg-now{position:absolute;left:0;right:0;height:2px;background:var(--warm);z-index:3}
+.tg-now::before{content:"";position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--warm)}
+
+/* Seitenkopf mit dezenter Form */
+.hero{position:relative}
+.hero::after{content:"";position:absolute;right:-30px;top:-60px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--warm) 14%,transparent),transparent 70%);pointer-events:none;z-index:-1}
+main{position:relative;z-index:0}
+main{overflow-x:clip}
+.tg-ev b.one{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tg-ev b.one small{display:inline;font-weight:600}

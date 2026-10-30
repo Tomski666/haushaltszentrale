@@ -1,8 +1,8 @@
 'use strict';
-/* Haushaltszentrale Prototyp v3
+/* Haushaltszentrale Prototyp v4 (Gesprächsversion)
    Nur fiktive Beispieldaten. Speicherung ausschließlich im Browser (localStorage), keine Übertragung. */
 (() => {
-  const KEY = 'haushaltszentrale-demo-v3';
+  const KEY = 'haushaltszentrale-demo-v4';
   const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
   const WDL = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
   const MON = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
@@ -22,6 +22,14 @@
   const byTime = (a, b) => (a.date + (a.start || '00:00')).localeCompare(b.date + (b.start || '00:00'));
   const nowHM = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
   const relDay = d => { const n = diff(day(0), d); return n === 0 ? 'Heute' : n === 1 ? 'Morgen' : fmt(d); };
+
+  // ---------- Ferien und Feiertage NRW (Quelle: Ferienordnung NRW, Schuljahr 2026/27) ----------
+  const FERIEN = [['2026-10-17', '2026-10-31', 'Herbstferien'], ['2026-12-23', '2027-01-06', 'Weihnachtsferien'], ['2027-03-22', '2027-04-03', 'Osterferien'], ['2027-05-18', '2027-05-18', 'Pfingstferien'], ['2027-07-19', '2027-08-31', 'Sommerferien']];
+  const FEIERTAGE = { '2026-11-01': 'Allerheiligen', '2026-12-25': '1. Weihnachtstag', '2026-12-26': '2. Weihnachtstag', '2027-01-01': 'Neujahr', '2027-03-26': 'Karfreitag', '2027-03-28': 'Ostersonntag', '2027-03-29': 'Ostermontag', '2027-05-01': 'Tag der Arbeit', '2027-05-06': 'Christi Himmelfahrt', '2027-05-16': 'Pfingstsonntag', '2027-05-17': 'Pfingstmontag', '2027-05-27': 'Fronleichnam', '2027-10-03': 'Tag der Deutschen Einheit' };
+  function dayInfo(d) {
+    const f = FERIEN.find(([a, b]) => d >= a && d <= b);
+    return { holiday: FEIERTAGE[d] || '', ferien: f ? f[2] : '', ferienEnd: f ? f[1] : '' };
+  }
 
   // ---------- Icons ----------
   const IC = {
@@ -60,6 +68,8 @@
     share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.6M8.2 13.2l7.6 4.6"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
     phoneapp: '<rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M10.5 18.5h3"/>',
+    layers: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+    wave: '<path d="M7 11V6.5a1.5 1.5 0 0 1 3 0V10M10 9.5V4.5a1.5 1.5 0 0 1 3 0V10M13 9.5V6a1.5 1.5 0 0 1 3 0v6"/><path d="M16 10a1.5 1.5 0 0 1 3 0v3a8 8 0 0 1-8 8h-.5a7 7 0 0 1-5.6-2.8L2.8 15a1.6 1.6 0 0 1 2.5-2L7 15"/>',
     send: '<path d="M21 3 10.5 13.5M21 3l-6.5 18-4-7.5-7.5-4z"/>',
     sparkle: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
     hand: '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11M11 10.5V4a1.5 1.5 0 0 1 3 0v7M14 10.5V5.5a1.5 1.5 0 0 1 3 0V13"/><path d="M17 9.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-1a7 7 0 0 1-5.6-2.8L3.2 15a1.6 1.6 0 0 1 2.5-2L8 15"/>'
@@ -69,8 +79,12 @@
   // ---------- Beispieldaten ----------
   const famList = (arr) => arr.map(([fam, kids, phone, addr]) => ({ fam, kids, phone: phone || '', addr: addr || '' }));
   function seed() {
+    // Beispieltermine auf passende Wochentage legen, Schultermine nicht in Ferien oder auf Feiertage
+    const nd = (dow, min = 0) => { for (let i = min; i < min + 7; i++) if (parse(day(i)).getDay() === dow) return i; return min; };
+    const ns = (dow, min = 0) => { for (let i = min; i < min + 90; i++) { const d = day(i), w = parse(d).getDay(), inf = dayInfo(d); if ((dow == null ? w > 0 && w < 6 : w === dow) && !inf.ferien && !inf.holiday) return i; } return min; };
+    const oMo = nd(1), oDi = nd(2), oMi = nd(3), oDo = nd(4), oFr = nd(5), oSa = nd(6, 1), oSo = nd(0, 1), oFest = ns(5, 7), oAus = nd(6, oSa + 7), oBday = nd(6, oSa + 14);
     return {
-      v: 3, current: 'm1', view: 'heute', kTab: 'plan', gid: null, gTab: 'info', wk: 0, modal: null,
+      v: 4, current: 'm1', introDone: false, modules: { kueche: true, gruppen: true, vertraege: true }, cTab: 'gruppen', view: 'heute', kTab: 'plan', gid: null, gTab: 'info', wk: 0, modal: null,
       family: 'Neumann', phone: '0160 5550142', addr: 'Lindenweg 4, Musterstadt',
       members: [
         { id: 'm1', name: 'Sandra', role: 'eltern', color: 0 },
@@ -80,19 +94,19 @@
         { id: 'k3', name: 'Mia', role: 'kind', stufe: 1, alter: 6, color: 4 }
       ],
       events: [
-        { id: 'e1', date: day(0), start: '07:15', end: '', title: 'Ben: Sportzeug einpacken', who: ['k1'] },
-        { id: 'e2', date: day(0), start: '16:00', end: '17:30', title: 'Leichtathletik', who: ['k2'], place: 'Sportplatz Nord', repeat: 'weekly', bring: 'm1', pick: '' },
-        { id: 'e3', date: day(0), start: '17:30', end: '19:00', title: 'Handballtraining', who: ['k1'], group: 'g1', place: 'Sporthalle am Park', repeat: 'weekly', bring: 'm2', pick: 'fam:Yilmaz' },
-        { id: 'e4', date: day(0), start: '19:30', end: '21:00', title: 'Elternabend Klasse 6b', who: ['m1'], group: 'g2', place: 'Gymnasium, Raum 104' },
-        { id: 'e5', date: day(1), start: '08:00', end: '12:00', title: 'Kita-Ausflug', who: ['k3'], note: 'Rucksack, Brotdose' },
-        { id: 'e6', date: day(1), start: '15:00', end: '15:45', title: 'Zahnarzt', who: ['k2', 'm2'] },
-        { id: 'e14', date: day(1), start: '16:30', end: '17:15', title: 'Musikschule Klavier', who: ['k2'], place: 'Musikschule, Lindenplatz', repeat: 'weekly', bring: 'self', pick: 'self' },
-        { id: 'e7', date: day(2), start: '17:30', end: '19:00', title: 'Handballtraining', who: ['k1'], group: 'g1', place: 'Sporthalle am Park', repeat: 'weekly', bring: '', pick: 'm1' },
-        { id: 'e8', date: day(3), start: '08:00', end: '13:00', title: 'Wandertag', who: ['k2'], group: 'g2', note: 'Brotdose, Regenjacke' },
-        { id: 'e9', date: day(4), start: '14:00', end: '16:00', title: 'Heimspiel gegen TV Beispielhausen', who: ['k1', 'k2', 'k3', 'm1', 'm2'], group: 'g1' },
-        { id: 'e10', date: day(5), start: '12:30', end: '15:00', title: 'Mittagessen bei Oma und Opa', who: ['m1', 'm2', 'k1', 'k2', 'k3'] },
-        { id: 'e11', date: day(6), start: '10:00', end: '11:00', title: 'Schwimmkurs', who: ['k3', 'm2'], repeat: 'weekly' },
-        { id: 'e12', date: day(8), start: '19:00', end: '20:30', title: 'Fördervereinssitzung', who: ['m2'] }
+        { id: 'e1', date: day(oDi), start: '07:15', end: '', title: 'Sportzeug einpacken', who: ['k1'], repeat: 'weekly' },
+        { id: 'e2', date: day(oMo), start: '16:00', end: '17:30', title: 'Leichtathletik', who: ['k2'], place: 'Sportplatz Nord', repeat: 'weekly', bring: 'm1', pick: '' },
+        { id: 'e3', date: day(oDi), start: '17:30', end: '19:00', title: 'Handballtraining', who: ['k1'], group: 'g1', place: 'Sporthalle am Park', repeat: 'weekly', bring: 'm2', pick: 'fam:Yilmaz' },
+        { id: 'e7', date: day(oDo), start: '17:30', end: '19:00', title: 'Handballtraining', who: ['k1'], group: 'g1', place: 'Sporthalle am Park', repeat: 'weekly', bring: '', pick: 'm1' },
+        { id: 'e14', date: day(oMi), start: '16:30', end: '17:15', title: 'Musikschule Klavier', who: ['k2'], place: 'Musikschule, Lindenplatz', repeat: 'weekly', bring: 'self', pick: 'self' },
+        { id: 'e11', date: day(oSa), start: '10:00', end: '11:00', title: 'Schwimmkurs', who: ['k3', 'm2'], repeat: 'weekly' },
+        { id: 'e9', date: day(oSa), start: '14:00', end: '16:00', title: 'Heimspiel gegen TV Beispielhausen', who: ['k1', 'k2', 'k3', 'm1', 'm2'], group: 'g1' },
+        { id: 'e10', date: day(oSo), start: '12:30', end: '15:00', title: 'Mittagessen bei Oma und Opa', who: ['m1', 'm2', 'k1', 'k2', 'k3'] },
+        { id: 'e5', date: day(oFr), start: '08:00', end: '12:00', title: 'Kita-Ausflug', who: ['k3'], note: 'Rucksack, Brotdose' },
+        { id: 'e6', date: day(nd(4, 1)), start: '15:00', end: '15:45', title: 'Zahnarzt', who: ['k2', 'm2'] },
+        { id: 'e4', date: day(ns(3, 1)), start: '19:30', end: '21:00', title: 'Elternabend Klasse 6b', who: ['m1'], group: 'g2', place: 'Gymnasium, Raum 104' },
+        { id: 'e8', date: day(ns(null, 2)), start: '08:00', end: '13:00', title: 'Wandertag', who: ['k2'], group: 'g2', note: 'Brotdose, Regenjacke' },
+        { id: 'e12', date: day(nd(4, 7)), start: '19:00', end: '20:30', title: 'Fördervereinssitzung', who: ['m2'] }
       ],
       tasks: [
         { id: 't1', title: 'Spülmaschine ausräumen', who: 'k1', due: day(0), done: false },
@@ -102,7 +116,7 @@
         { id: 't5', title: 'Zimmer aufräumen', who: 'k2', due: day(2), done: false },
         { id: 't6', title: 'Hausaufgaben Mathe vorzeigen', who: 'k1', due: day(1), done: false },
         { id: 't7', title: 'Spielzeug wegräumen', who: 'k3', due: day(0), done: true },
-        { id: 't8', title: 'Geschenk für Emmas Geburtstag', who: 'm1', due: day(10), done: false }
+        { id: 't8', title: 'Geschenk für Emmas Geburtstag', who: 'm1', due: day(oBday - 2), done: false }
       ],
       recipes: [
         { id: 'r1', name: 'Pasta mit Tomatensoße', min: 20, fast: true, pal: ['#f6cf8e', '#e8925d', '#e9b44c', '#d9472b', '#7bb661'], z: ['Spaghetti', 'Passierte Tomaten', 'Zwiebel', 'Knoblauch', 'Parmesan'] },
@@ -129,10 +143,10 @@
             { from: 'Familie Yilmaz', role: 'Eltern', text: 'Wer fährt Samstag zum Heimspiel? Wir haben noch einen Platz frei.', when: 'heute 07:15' }
           ],
           helpers: [
-            { id: 'h1', task: 'Kuchen für das Heimspiel', date: day(4), cake: true, by: null },
-            { id: 'h2', task: 'Kasse Catering 1. Halbzeit', date: day(4), by: 'Familie Becker' },
-            { id: 'h3', task: 'Kasse Catering 2. Halbzeit', date: day(4), by: null },
-            { id: 'h4', task: 'Fahrdienst Auswärtsspiel', date: day(11), by: null }
+            { id: 'h1', task: 'Kuchen für das Heimspiel', date: day(oSa), cake: true, by: null },
+            { id: 'h2', task: 'Kasse Catering 1. Halbzeit', date: day(oSa), by: 'Familie Becker' },
+            { id: 'h3', task: 'Kasse Catering 2. Halbzeit', date: day(oSa), by: null },
+            { id: 'h4', task: 'Fahrdienst Auswärtsspiel', date: day(oAus), by: null }
           ],
           kasse: { title: 'Saisonabschlussfahrt, 25 € pro Kind', total: 15, paid: 9, ours: false }
         },
@@ -143,22 +157,22 @@
           families: famList([['Hoffmann', ['Emma'], '0172 5550188'], ['Schmidt', ['Noah']], ['Lehmann', ['Sophie'], '0160 5550177', 'Birkenstraße 3'], ['Fischer', ['Marie']], ['Yilmaz', ['Aylin'], '0170 5550101']]),
           msgs: [{ from: 'Sandra Neumann', role: 'Elternvertretung', text: 'Für das Herbstfest suchen wir noch Kuchen und Hilfe beim Aufbau. Bitte in die Helferliste eintragen.', when: 'Montag 20:10', mine: true }],
           helpers: [
-            { id: 'h5', task: 'Kuchen für das Herbstfest', date: day(9), cake: true, by: null },
-            { id: 'h6', task: 'Aufbau Herbstfest', date: day(9), by: 'Familie Lehmann' },
-            { id: 'h7', task: 'Getränkestand Herbstfest', date: day(9), by: null }
+            { id: 'h5', task: 'Kuchen für das Herbstfest', date: day(oFest), cake: true, by: null },
+            { id: 'h6', task: 'Aufbau Herbstfest', date: day(oFest), by: 'Familie Lehmann' },
+            { id: 'h7', task: 'Getränkestand Herbstfest', date: day(oFest), by: null }
           ],
           kasse: { title: 'Klassenkasse 1. Halbjahr, 15 € pro Kind', total: 28, paid: 22, ours: true }
         }
       ],
       joinable: { '482913': { name: 'Förderverein Grundschule am Park', typ: 'Förderverein', icon: 'heart', gi: 2, lead: 'Vorstand Förderverein', families: famList([['Krause', ['Ida']], ['Neumeyer', ['Tom'], '0151 5550111'], ['Arslan', ['Deniz']]]) } },
-      rsvp: { ['e9@' + day(4) + '|k1']: 'ja' },
+      rsvp: { ['e9@' + day(oSa) + '|k1']: 'ja' },
       connections: [
         { id: 'f1', fam: 'Yilmaz', status: 'verbunden', via: 'HSG Musterstadt C-Jugend', note: 'Fahrgemeinschaft Training dienstags' },
         { id: 'f2', fam: 'Becker', status: 'eingehend', via: 'HSG Musterstadt C-Jugend' },
         { id: 'f3', fam: 'Lehmann', status: 'verbunden', via: 'Klassenpflegschaft 6b', note: '' }
       ],
       invites: [
-        { id: 'i1', from: 'Hoffmann', title: 'Emmas 11. Geburtstag', date: day(15), start: '15:00', end: '18:00', kid: 'k2', place: 'Trampolinhalle Musterstadt', answer: null }
+        { id: 'i1', from: 'Hoffmann', title: 'Emmas 11. Geburtstag', date: day(oBday), start: '15:00', end: '18:00', kid: 'k2', place: 'Trampolinhalle Musterstadt', answer: null }
       ],
       contracts: [
         { id: 'c1', name: 'Handyvertrag Ben', cat: 'Mobilfunk', amount: 9.99, per: 'monat', end: day(52), notice: 1, remind: false },
@@ -173,8 +187,8 @@
 
   let S;
   function load() {
-    try { const raw = localStorage.getItem(KEY); if (raw) { const s = JSON.parse(raw); if (s && s.v === 3) { S = s; S.modal = null; return; } } } catch (e) { /* ohne Speicher weiter */ }
-    S = seed();
+    try { const raw = localStorage.getItem(KEY); if (raw) { const s = JSON.parse(raw); if (s && s.v === 4) { S = s; S.modal = S.introDone ? null : { t: 'intro', step: 1 }; return; } } } catch (e) { /* ohne Speicher weiter */ }
+    S = seed(); S.modal = { t: 'intro', step: 1 };
   }
   function save() { try { const c = Object.assign({}, S, { modal: null, popId: null, celebrate: false }); localStorage.setItem(KEY, JSON.stringify(c)); } catch (e) { /* ignorieren */ } }
 
@@ -183,9 +197,10 @@
   const me = () => member(S.current);
   const isParent = (m = me()) => m.role === 'eltern';
   const level = (m = me()) => isParent(m) ? 9 : m.stufe;
-  const canGroups = () => level() >= 3;
-  const canFamilies = () => isParent();
-  const canContracts = () => isParent();
+  const mod = k => !S.modules || S.modules[k] !== false;
+  const canGroups = () => level() >= 3 && mod('gruppen');
+  const canFamilies = () => isParent() && mod('gruppen');
+  const canContracts = () => isParent() && mod('vertraege');
   const parents = () => S.members.filter(m => m.role === 'eltern');
   const av = (id, cls = '') => { const m = member(id); return m ? `<span class="av ${cls} p${m.color}" title="${esc(m.name)}">${esc(m.name[0])}</span>` : ''; };
   const avs = (ids, cls = 'sm') => `<span class="avs">${ids.map(i => av(i, cls)).join('')}</span>`;
@@ -279,7 +294,7 @@
     let h = `<div class="kid-hero"><div class="row">${av(m.id, 'xl')}<div><p class="eyebrow">${fmtLong(t)}</p><h1>Hey ${esc(m.name)}!</h1><p class="lead">${all ? 'Alles erledigt für heute. Stark!' : tasks.length ? 'Noch ' + (tasks.length - done) + ' Aufgabe' + (tasks.length - done === 1 ? '' : 'n') + ' für heute.' : 'Heute hast du keine Aufgaben.'}</p></div></div>${tasks.length ? ring(done, tasks.length) : ''}</div>`;
     const left = `<section class="card kid">${cardH('tasks', 'Deine Aufgaben')}${tasks.length ? `<ul class="list">${tasks.map(taskLi).join('')}</ul>` : empty('Keine Aufgaben. Genieß den Tag!', 'sun')}</section>
       <section class="card">${cardH('clock', 'Dein Tag', `<button class="btn sm ghost" data-a="go" data-id="kalender">Woche ${ic('right')}</button>`)}${timeline(t)}${rides.map(e => `<div class="hint ${e.pick ? 'green' : 'warm'}">${ic('car')}<div class="grow">${esc(e.title)}: ${e.bring === 'self' ? 'Du fährst allein hin' : 'Hin bringt dich ' + esc(rideName(e.bring) || 'noch niemand')}${e.pick === 'self' ? ', zurück auch allein.' : e.pick ? ', zurück holt dich ' + esc(rideName(e.pick)) + ' ab.' : ', die Abholung ist noch offen.'}</div></div>`).join('')}</section>`;
-    const right = `<section class="card">${cardH('food', 'Heute Abend', '', 'warm')}<div class="meal-hero">${foodArt(mi.r)}<div><div class="strong">${mi.r ? esc(mi.r.name) : 'Noch nichts geplant'}</div></div></div></section>
+    const right = !mod('kueche') ? '' : `<section class="card">${cardH('food', 'Heute Abend', '', 'warm')}<div class="meal-hero">${foodArt(mi.r)}<div><div class="strong">${mi.r ? esc(mi.r.name) : 'Noch nichts geplant'}</div></div></div></section>
       <section class="card">${cardH('sparkle', 'Essenswunsch', '', 'gold')}<p class="small muted">Dein Wunsch landet bei deinen Eltern im Wochenplan.</p>${wishForm()}</section>
       <section class="card">${cardH('cart', 'Fehlt was?')}<p class="small muted">Setz es direkt auf die Einkaufsliste.</p><form class="addbar" data-f="shop"><input class="input" name="text" placeholder="z. B. Müsli" required maxlength="60" aria-label="Artikel"><button class="btn primary">${ic('plus')}</button></form></section>`;
     return h + `<div class="grid g-dash"><div class="stack">${left}</div><div class="stack">${right}</div></div>`;
@@ -294,7 +309,9 @@
     const shopOpen = S.shopping.filter(s => !s.done).length;
     const mi = mealInfo(t);
 
-    let h = hero(fmtLong(t), `${greet}, ${esc(m.name)}`, isParent() ? 'Das steht heute bei euch an.' : 'Das steht heute bei dir an.');
+    const di = dayInfo(t), tm = dayInfo(day(1));
+    const lead = di.holiday ? `Heute ist ${di.holiday}.` : di.ferien ? `${di.ferien} bis ${fmt(di.ferienEnd)}` : tm.holiday ? `Morgen ist ${tm.holiday}.` : 'Das steht heute bei euch an.';
+    let h = hero(fmtLong(t), `${greet}, ${esc(m.name)}`, lead);
     h += `<div class="stats">
       <button class="stat" data-a="go" data-id="kalender"><b>${evCount}</b><span>Termine heute</span></button>
       <button class="stat" data-a="go" data-id="aufgaben"><b>${tasks.length}</b><span>offene Aufgaben</span></button>
@@ -308,7 +325,7 @@
     if (mi.warn && isParent()) meal += `<button class="btn soft sm mt" data-a="quickmeal" data-id="${t}">${ic('sparkle')} Schnelles Gericht wählen</button>`;
     meal += '</section>';
 
-    let right = meal;
+    let right = mod('kueche') ? meal : '';
     const rides = eventsOn(t, true).filter(needRide);
     if (isParent() && rides.length) {
       right += `<section class="card">${cardH('car', 'Fahrten heute', rides.some(e => !e.bring || !e.pick) ? '<span class="pill warm">offen</span>' : '<span class="pill green">alles geklärt</span>')}<ul class="list">${rides.map(e => `<li class="li clickable" data-a="openevent" data-id="${e.oid}">${av(e.who[0])}<div class="grow"><div class="t">${esc(e.title)}</div><div class="xs muted">${e.start} bis ${e.end} · ${esc(e.place)}</div><div class="row wrap mt-xs"><span class="pill ${e.bring ? '' : 'warm'}">hin: ${esc(rideName(e.bring) || 'offen')}</span><span class="pill ${e.pick ? '' : 'warm'}">zurück: ${esc(rideName(e.pick) || 'offen')}</span></div></div>${ic('right')}</li>`).join('')}</ul></section>`;
@@ -336,12 +353,40 @@
     h += '<div class="week">';
     for (let i = 0; i < 7; i++) {
       const d = day(start + i), x = parse(d), list = eventsOn(d);
-      h += `<div class="dcol ${d === day(0) ? 'today' : ''}"><div class="dhead"><b>${x.getDate()}</b><span>${d === day(0) ? 'Heute' : WDL[x.getDay()]}</span></div>`;
+      const inf = dayInfo(d);
+      h += `<div class="dcol ${d === day(0) ? 'today' : ''} ${inf.holiday || inf.ferien ? 'offday' : ''}"><div class="dhead"><b>${x.getDate()}</b><span>${d === day(0) ? 'Heute' : WDL[x.getDay()]}</span></div>${inf.holiday ? `<span class="pill red xs-pill">${esc(inf.holiday)}</span>` : inf.ferien ? `<span class="pill gold xs-pill">${esc(inf.ferien)}</span>` : ''}`;
       h += list.length ? list.map(e => `<div class="ev bl${firstColor(e)}" data-a="openevent" data-id="${e.oid}"><small>${e.start}${e.end ? '–' + e.end : ''}${e.repeat ? ' ' + ic('repeat') : ''}</small><b>${esc(e.title)}</b><span class="row">${avs(e.who)}${needRide(e) && (!e.bring || !e.pick) ? `<span class="c2" title="Fahrt offen">${ic('car')}</span>` : ''}</span></div>`).join('') : `<div class="free">${ic('sun')}<span>frei</span></div>`;
       h += '</div>';
     }
-    h += '</div><div class="hint gray mt">' + ic('info') + '<div class="grow">Im Produkt bekommt jede Person ein Kalenderabo für Apple, Google, Outlook oder Home Assistant.</div></div>';
+    h += '</div>' + timeGrid(start);
+    h += '<div class="hint gray mt">' + ic('info') + '<div class="grow">Ferien und Feiertage NRW sind eingetragen. Im Produkt bekommt jede Person zusätzlich ein Kalenderabo für Apple, Google, Outlook oder Home Assistant.</div></div>';
     return h;
+  }
+
+  function timeGrid(start) {
+    const H0 = 7, H1 = 22, PX = 46, toMin = t => { const [a, b] = t.split(':').map(Number); return a * 60 + b; };
+    let head = '<div class="tg-corner"></div>', all = '<div class="tg-lbl">ganztägig</div>', cols = '';
+    for (let i = 0; i < 7; i++) {
+      const d = day(start + i), x = parse(d), inf = dayInfo(d), list = eventsOn(d);
+      head += `<div class="tg-dh ${d === day(0) ? 'today' : ''}"><span>${WD[x.getDay()]}</span><b>${x.getDate()}</b></div>`;
+      const timed = list.filter(e => e.start && toMin(e.start) >= H0 * 60 && toMin(e.start) < H1 * 60), untimed = list.filter(e => !timed.includes(e));
+      all += `<div class="tg-ad ${inf.holiday || inf.ferien ? 'offday' : ''}">${inf.holiday ? `<span class="pill red xs-pill">${esc(inf.holiday)}</span>` : inf.ferien ? `<span class="pill gold xs-pill">${esc(inf.ferien)}</span>` : ''}${untimed.map(e => `<div class="ev bl${firstColor(e)}" data-a="openevent" data-id="${e.oid}"><b>${esc(e.title)}</b></div>`).join('')}</div>`;
+      const lanes = [], placed = timed.map(e => {
+        const s0 = toMin(e.start), s1 = e.end ? Math.max(toMin(e.end), s0 + 30) : s0 + 30;
+        let lane = lanes.findIndex(end => end <= s0); if (lane < 0) { lane = lanes.length; lanes.push(0); } lanes[lane] = s1;
+        return { e, s0, s1, lane };
+      });
+      const n = Math.max(1, lanes.length);
+      let col = `<div class="tg-col ${d === day(0) ? 'today' : ''} ${inf.holiday || inf.ferien ? 'offday' : ''}">`;
+      placed.forEach(({ e, s0, s1, lane }) => {
+        col += `<div class="tg-ev bl${firstColor(e)}" data-a="openevent" data-id="${e.oid}" data-top="${((s0 - H0 * 60) / 60 * PX).toFixed(0)}" data-h="${((s1 - s0) / 60 * PX - 3).toFixed(0)}" data-l="${(lane * 100 / n).toFixed(2)}" data-w="${(100 / n).toFixed(2)}">${(s1 - s0) < 60 ? `<b class="one"><small>${e.start}</small> ${esc(e.title)}</b>` : `<small>${e.start}${e.end ? '–' + e.end : ''}</small><b>${esc(e.title)}</b>${avs(e.who)}`}</div>`;
+      });
+      if (d === day(0)) { const nm = toMin(nowHM()); if (nm > H0 * 60 && nm < H1 * 60) col += `<div class="tg-now" data-top="${((nm - H0 * 60) / 60 * PX).toFixed(0)}"></div>`; }
+      cols += col + '</div>';
+    }
+    let hours = '';
+    for (let hr = H0; hr < H1; hr++) hours += `<div class="tg-h">${pad(hr)}:00</div>`;
+    return `<div class="tgrid"><div class="tg-head">${head}</div><div class="tg-all">${all}</div><div class="tg-body"><div class="tg-hours">${hours}</div>${cols}</div></div>`;
   }
 
   // ---------- Ansicht: Aufgaben ----------
@@ -361,6 +406,7 @@
   const wishForm = () => `<form class="addbar" data-f="wish"><input class="input" name="text" placeholder="Was möchtest du gern essen?" required maxlength="60" aria-label="Essenswunsch"><button class="btn primary">${ic('send')}</button></form>`;
 
   function vKueche() {
+    if (!mod('kueche')) { S.view = 'heute'; return vHeute(); }
     const actions = S.kTab === 'plan' && isParent() ? `<button class="btn primary" data-a="planshop">${ic('cart')} Zutaten der Woche auf die Liste</button>` : '';
     let h = hero('Küche', S.kTab === 'plan' ? 'Wochenplan' : S.kTab === 'rezepte' ? 'Rezepte' : 'Einkaufsliste', 'Wochenplan, Rezepte und Einkauf hängen zusammen.', actions);
     h += `<div class="tabs" role="tablist">${[['plan', 'Wochenplan'], ['rezepte', 'Rezepte'], ['einkauf', 'Einkauf']].map(([k, l]) => `<button role="tab" class="${S.kTab === k ? 'on' : ''}" data-a="ktab" data-id="${k}">${l}</button>`).join('')}</div>`;
@@ -394,11 +440,20 @@
       <section class="card">${cardH('tick', 'Im Wagen', done.length ? `<button class="btn sm ghost" data-a="clearshop">Leeren</button>` : '')}${done.length ? `<ul class="list">${done.map(row).join('')}</ul>` : empty('Noch nichts im Wagen.', 'tick')}</section></div>`;
   }
 
+  // ---------- Ansicht: Gemeinschaft ----------
+  function commHead(tab, actions) {
+    const req = S.groups.reduce((n, g) => n + (g.admin ? g.requests.length : 0), 0);
+    const fam = S.connections.filter(c => c.status === 'eingehend').length + S.invites.filter(i => !i.answer).length;
+    let h = hero('Gemeinschaft', 'Gruppen und Kontakte', tab === 'gruppen' ? 'Beitritt nur auf Einladung. Kein öffentliches Verzeichnis.' : 'Verbindungen entstehen nur, wenn beide Familien zustimmen.', actions);
+    if (canFamilies()) h += `<div class="tabs" role="tablist"><button role="tab" class="${tab === 'gruppen' ? 'on' : ''}" data-a="go" data-id="gruppen">Gruppen${req ? ` <span class="badge">${req}</span>` : ''}</button><button role="tab" class="${tab === 'kontakte' ? 'on' : ''}" data-a="go" data-id="familien">Kontakte und Einladungen${fam ? ` <span class="badge">${fam}</span>` : ''}</button></div>`;
+    return h;
+  }
+
   // ---------- Ansicht: Gruppen ----------
   function vGruppen() {
     if (!canGroups()) return hero('Gruppen', 'Nicht freigeschaltet', '') + `<div class="hint gray">${ic('lock')}<div class="grow">Gruppen sind für dein Konto nicht freigeschaltet. Termine aus deinen Gruppen siehst du im Kalender.</div></div>`;
     const actions = isParent() ? `<button class="btn" data-a="modal" data-id="join">${ic('key')} Mit Code beitreten</button><button class="btn primary" data-a="modal" data-id="creategroup">${ic('plus')} Gruppe gründen</button>` : '';
-    let h = hero('Gruppen', 'Mannschaft, Klasse, Verein', 'Beitritt nur auf Einladung. Kein öffentliches Verzeichnis.', actions);
+    let h = commHead('gruppen', actions);
     h += `<div class="grid g3">`;
     myGroups().forEach(g => {
       const open = g.helpers.filter(x => !x.by).length;
@@ -417,7 +472,7 @@
     const tabs = [['info', 'Übersicht'], ['msgs', 'Nachrichten']];
     if (isParent()) tabs.push(['members', 'Mitglieder'], ['kasse', 'Kasse']);
     if (!tabs.some(t => t[0] === S.gTab)) S.gTab = 'info';
-    let h = `<button class="btn sm ghost" data-a="go" data-id="gruppen">${ic('left')} Alle Gruppen</button>`;
+    let h = `<button class="btn sm ghost" data-a="go" data-id="gruppen">${ic('left')} Gemeinschaft</button>`;
     h += `<div class="hero"><div class="row"><span class="gicon gi${g.gi}">${ic(g.icon)}</span><div><p class="eyebrow">${esc(g.typ)}</p><h1>${esc(g.name)}</h1><p class="lead">Verwaltet von ${esc(g.lead)}</p></div></div>${g.admin ? `<div class="row"><button class="btn primary" data-a="modal" data-id="invite">${ic('userplus')} Familien einladen</button></div>` : ''}</div>`;
     if (g.pending) return h + `<section class="card"><div class="hint gold">${ic('clock')}<div class="grow">Eure Beitrittsanfrage liegt beim Gruppenverwalter. Sobald sie bestätigt ist, seht ihr Termine, Nachrichten und Helferlisten.</div></div><button class="btn mt" data-a="approveme" data-id="${g.id}">Bestätigung simulieren (nur Demo)</button></section>`;
     h += `<div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" class="${S.gTab === k ? 'on' : ''}" data-a="gtab" data-id="${k}">${l}${k === 'info' && g.admin && g.requests.length ? ` <span class="badge">${g.requests.length}</span>` : ''}</button>`).join('')}</div>`;
@@ -452,7 +507,7 @@
   // ---------- Ansicht: Familien ----------
   function vFamilien() {
     if (!canFamilies()) { S.view = 'heute'; return vHeute(); }
-    let h = hero('Familien', 'Verbindungen und Einladungen', 'Verbindungen entstehen nur, wenn beide Familien zustimmen.', `<button class="btn primary" data-a="modal" data-id="connectpick">${ic('link')} Familie verbinden</button>`);
+    let h = commHead('kontakte', `<button class="btn primary" data-a="modal" data-id="connectpick">${ic('link')} Familie verbinden</button>`);
     const inc = S.connections.filter(c => c.status === 'eingehend'), con = S.connections.filter(c => c.status === 'verbunden'), out = S.connections.filter(c => c.status === 'angefragt');
     let left = '';
     if (inc.length) left += `<section class="card">${cardH('link', 'Anfragen an euch', `<span class="badge">${inc.length}</span>`, 'warm')}<ul class="list">${inc.map(c => `<li class="li act">${famAv(c.fam)}<div class="grow"><div class="t">Familie ${esc(c.fam)}</div><div class="xs muted">kennt ihr aus ${esc(c.via)}</div></div><button class="btn sm ghost" data-a="condecline" data-id="${c.id}">Ablehnen</button><button class="btn sm primary" data-a="conaccept" data-id="${c.id}">Annehmen</button></li>`).join('')}</ul></section>`;
@@ -489,18 +544,23 @@
       const code = S.pair[m.id];
       return `<li class="li">${av(m.id, 'lg')}<div class="grow"><div class="t">${esc(m.name)} <span class="xs muted">${m.alter} Jahre</span></div><select class="input mt" data-c="stufe" data-id="${m.id}" aria-label="Zugangsstufe für ${esc(m.name)}"><option value="1" ${m.stufe === 1 ? 'selected' : ''}>Stufe 1: Profil ohne Zugang</option><option value="2" ${m.stufe === 2 ? 'selected' : ''}>Stufe 2: eigene Termine, Aufgaben, Liste</option><option value="3" ${m.stufe === 3 ? 'selected' : ''}>Stufe 3: zusätzlich Gruppen</option></select>${code ? `<div class="code">${code}</div><div class="xs muted">Kopplungscode, 10 Minuten gültig. Im Produkt als QR-Code zum Scannen.</div>` : ''}</div>${m.stufe > 1 ? `<button class="btn sm" data-a="pair" data-id="${m.id}">${ic('key')} Gerät koppeln</button>` : ''}</li>`;
     }).join('')}</ul></section>
+    <section class="card">${cardH('layers', 'Module', '<span class="pill">Beispielpreise</span>', 'gold')}<p class="small muted">Die Basis enthält Kalender, Aufgaben, Rollen und Ferien. Module schaltet ihr nach Bedarf dazu.</p><ul class="list">
+      <li class="li"><span class="muted">${ic('home')}</span><div class="grow"><div class="t">Basis</div><div class="xs muted">Kalender, Aufgaben, Rollen, Ferien und Feiertage</div></div><span class="pill">3 € / Monat</span><button class="toggle on" disabled aria-label="Basis immer aktiv"></button></li>
+      ${[['kueche', 'food', 'Küche', 'Wochenplan, Rezepte, Einkaufsliste', '+1 €'], ['gruppen', 'users', 'Gemeinschaft', 'Gruppen, Kontakte, Einladungen', 'für Mitglieder kostenlos'], ['vertraege', 'file', 'Verträge und Abos', 'Kosten, Fristen, Erinnerungen', '+1 €']].map(([k, i, l, d, pr]) => `<li class="li"><span class="muted">${ic(i)}</span><div class="grow"><div class="t">${l}</div><div class="xs muted">${d}</div></div><span class="pill">${pr}</span><button class="toggle ${mod(k) ? 'on' : ''}" data-a="module" data-id="${k}" aria-pressed="${mod(k)}" aria-label="${l} ein- oder ausschalten"></button></li>`).join('')}</ul></section>
     <div class="stack"><section class="card">${cardH('phoneapp', 'Als App installieren', '', 'warm')}${window.matchMedia && window.matchMedia('(display-mode: standalone)').matches ? `<div class="hint green">${ic('tick')}<div class="grow">Läuft bereits als installierte App.</div></div>` : installPrompt ? `<p class="small muted">Eigenes Symbol auf dem Startbildschirm, Vollbild, funktioniert auch offline.</p><button class="btn primary" data-a="install">${ic('plus')} Jetzt installieren</button>` : `<p class="small muted">Eigenes Symbol auf dem Startbildschirm, Vollbild, funktioniert auch offline.</p><ol class="install-steps"><li><b>iPhone (Safari):</b> Teilen-Symbol, dann „Zum Home-Bildschirm“.</li><li><b>Android (Chrome):</b> Menü mit drei Punkten, dann „App installieren“.</li><li><b>PC (Chrome, Edge):</b> Installieren-Symbol rechts in der Adressleiste.</li></ol>`}</section>
     <section class="card">${cardH('cal', 'Kalenderabo')}<p class="small muted">Im Produkt bekommt jede Person einen eigenen Abo-Link für Apple, Google, Outlook und Home Assistant. Der Link ist jederzeit widerrufbar.</p><button class="btn sm" disabled>Abo-Link erzeugen (im Prototyp nicht aktiv)</button></section>
-    <section class="card">${cardH('shield', 'Datenschutz', '', 'gold')}<ul class="list small">${['Hosting in Deutschland, keine Übermittlung in Drittländer', 'Keine Werbung, keine Analysewerkzeuge Dritter', 'Kinder brauchen weder E-Mail-Adresse noch Telefonnummer', 'Kein Standort-Tracking', 'Keine Verbindung zu Bankkonten', 'Export und Löschung aller Familiendaten jederzeit'].map(x => `<li class="li"><span class="c3">${ic('tick')}</span>${x}</li>`).join('')}</ul><div class="hint gray">${ic('info')}<div class="grow">Dieser Prototyp speichert die Beispieldaten nur in deinem Browser. Bitte keine echten Daten eingeben.</div></div><button class="btn danger mt" data-a="reset">${ic('trash')} Beispieldaten zurücksetzen</button></section></div></div>`;
+    <section class="card">${cardH('shield', 'Datenschutz', '', 'gold')}<ul class="list small">${['Hosting in Deutschland, keine Übermittlung in Drittländer', 'Keine Werbung, keine Analysewerkzeuge Dritter', 'Kinder brauchen weder E-Mail-Adresse noch Telefonnummer', 'Kein Standort-Tracking', 'Keine Verbindung zu Bankkonten', 'Export und Löschung aller Familiendaten jederzeit'].map(x => `<li class="li"><span class="c3">${ic('tick')}</span>${x}</li>`).join('')}</ul><div class="hint gray">${ic('info')}<div class="grow">Dieser Prototyp speichert die Beispieldaten nur in deinem Browser. Bitte keine echten Daten eingeben.</div></div><div class="row wrap mt"><button class="btn" data-a="intro">${ic('wave')} Einführung zeigen</button><button class="btn danger" data-a="reset">${ic('trash')} Beispieldaten zurücksetzen</button></div></section></div></div>`;
     return h;
   }
 
   function vMehr() {
-    const items = [['aufgaben', 'tasks', 'Aufgaben']];
-    if (canFamilies()) items.push(['familien', 'link', 'Familien']);
-    if (canContracts()) items.push(['vertraege', 'file', 'Verträge und Abos']);
-    items.push(['einstellungen', 'shield', isParent() ? 'Familie und Datenschutz' : 'Über die App']);
-    return hero('', 'Mehr', '') + `<section class="card"><ul class="list">${items.map(([v, i, l]) => `<li class="li clickable" data-a="go" data-id="${v}"><span class="card-h"><span class="ic">${ic(i)}</span></span><span class="grow t">${l}</span>${ic('right')}</li>`).join('')}</ul></section>`;
+    const req = S.groups.reduce((n, g) => n + (g.admin ? g.requests.length : 0), 0) + S.connections.filter(c => c.status === 'eingehend').length + S.invites.filter(i => !i.answer).length;
+    const tiles = [];
+    if (mod('kueche')) tiles.push(['kueche', 'food', 'Küche', 'Wochenplan, Rezepte, Einkauf', 'warm', 0]);
+    if (canGroups()) tiles.push(['gruppen', 'users', 'Gemeinschaft', 'Gruppen und Kontakte', '', isParent() ? req : 0]);
+    if (canContracts()) tiles.push(['vertraege', 'file', 'Verträge', 'Kosten und Fristen', 'gold', 0]);
+    tiles.push(['einstellungen', 'shield', isParent() ? 'Einstellungen' : 'Über die App', isParent() ? 'Familie, Module, Datenschutz' : 'Dein Zugang', '', 0]);
+    return hero('', 'Mehr', '') + `<div class="tiles">${tiles.map(([v, i, l, d, tone, b]) => `<button class="tile" data-a="go" data-id="${v}"><span class="card-h"><span class="ic ${tone}">${ic(i)}</span></span><b>${l}${b ? ` <span class="badge">${b}</span>` : ''}</b><span class="xs muted">${d}</span></button>`).join('')}</div>`;
   }
 
   // ---------- Dialoge ----------
@@ -508,6 +568,27 @@
   const memberOpts = (sel) => S.members.map(m => `<option value="${m.id}" ${m.id === sel ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
 
   const MODALS = {
+    quick() {
+      const t = [];
+      if (isParent()) t.push(['newevent', 'cal', 'Termin', '']);
+      if (isParent()) t.push(['newtask', 'tasks', 'Aufgabe', '']);
+      if (mod('kueche')) t.push(['quickshop', 'cart', 'Einkauf', 'warm'], ['quickwish', 'sparkle', 'Essenswunsch', 'gold']);
+      return sheet('Neu anlegen', `<div class="qtiles">${t.map(([m, i, l, tone]) => `<button class="tile" data-a="modal" data-id="${m}"><span class="card-h"><span class="ic ${tone}">${ic(i)}</span></span><b>${l}</b></button>`).join('')}</div>`);
+    },
+    quickshop() {
+      const open = S.shopping.filter(x => !x.done).slice(-5).reverse();
+      return sheet('Auf die Einkaufsliste', `<form class="addbar" data-f="shop"><input class="input" name="text" placeholder="Was fehlt?" required maxlength="60" aria-label="Artikel" autofocus><button class="btn primary">${ic('plus')}</button></form><div class="xs muted mt">Zuletzt auf der Liste: ${open.map(x => esc(x.text)).join(', ') || 'noch nichts'}</div>`);
+    },
+    quickwish() { return sheet('Essenswunsch', `<p class="small muted">Landet im Wochenplan bei den Wünschen.</p>${wishForm()}`); },
+    intro() {
+      const st = S.modal.step || 1, dots = `<div class="steps">${[1, 2, 3].map(i => `<span class="${i <= st ? 'on' : ''}"></span>`).join('')}</div>`;
+      const pages = {
+        1: ['home', 'Willkommen in der Haushaltszentrale', 'Termine, Aufgaben, Essen und eure Gruppen an einem Ort. Ihr seht hier die Beispielfamilie Neumann: Sandra, Jens, Ben (14), Lena (11) und Mia (6).'],
+        2: ['users', 'Jeder in seiner Rolle', 'Oben wechselst du die Ansicht zwischen Eltern und Kindern. Kinder sehen nur ihre eigenen Termine und Aufgaben. Mia ist noch zu klein und hat keinen eigenen Zugang.'],
+        3: ['shield', 'Eure Daten bleiben eure', 'Hosting in Deutschland, keine Werbung, kein Standort-Tracking, keine Telefonnummern für Kinder. Dieser Prototyp speichert nur Beispieldaten in deinem Browser.']
+      }[st];
+      return sheet('', `<div class="intro">${dots}${emptyArt(pages[0])}<h2>${pages[1]}</h2><p class="muted">${pages[2]}</p>${st === 2 ? `<div class="row intro-avs">${S.members.map(m => av(m.id, 'lg')).join('')}</div>` : ''}<div class="row between mt"><button class="btn ghost" data-a="introdone">Überspringen</button><button class="btn primary" data-a="${st < 3 ? 'intronext' : 'introdone'}">${st < 3 ? 'Weiter' : 'Los geht’s'}</button></div></div>`);
+    },
     share() {
       return sheet(esc(S.modal.title), `<div class="share-prev">${esc(S.modal.text)}</div><div class="hint green">${ic('shield')}<div class="grow">Der Text verlässt die Haushaltszentrale. Er enthält deshalb keine Namen von Kindern oder Familien und keine Kontaktdaten.</div></div><div class="row mt"><button class="btn" data-a="copytext">Kopieren</button><button class="btn primary grow" data-a="doshare">${ic('share')} Teilen</button></div><p class="xs muted mt">Öffnet das Teilen-Menü deines Geräts: WhatsApp, Signal, Threema, Mail.</p>`);
     },
@@ -554,15 +635,18 @@
   // ---------- Rendern ----------
   const VIEWS = { heute: vHeute, kalender: vKalender, aufgaben: vAufgaben, kueche: vKueche, gruppen: vGruppen, gruppe: vGruppe, familien: vFamilien, vertraege: vVertraege, einstellungen: vEinstellungen, mehr: vMehr };
 
-  function navItems() {
+  function navSections() {
     const req = S.groups.reduce((n, g) => n + (g.admin ? g.requests.length : 0), 0);
     const fam = S.connections.filter(c => c.status === 'eingehend').length + S.invites.filter(i => !i.answer).length;
-    const items = [['heute', 'home', 'Heute'], ['kalender', 'cal', 'Kalender'], ['aufgaben', 'tasks', 'Aufgaben'], ['kueche', 'food', 'Küche']];
-    if (canGroups()) items.push(['gruppen', 'users', 'Gruppen', isParent() ? req : 0]);
-    if (canFamilies()) items.push(['familien', 'link', 'Familien', fam]);
-    if (canContracts()) items.push(['vertraege', 'file', 'Verträge']);
-    items.push(['einstellungen', 'shield', isParent() ? 'Einstellungen' : 'Über die App']);
-    return items;
+    const home = [['heute', 'home', 'Heute'], ['kalender', 'cal', 'Kalender'], ['aufgaben', 'tasks', 'Aufgaben']];
+    if (mod('kueche')) home.push(['kueche', 'food', 'Küche']);
+    const sec = [['Zuhause', home]];
+    if (canGroups()) sec.push(['Gemeinschaft', [['gruppen', 'users', 'Gruppen', isParent() ? req + fam : 0]]]);
+    const adm = [];
+    if (canContracts()) adm.push(['vertraege', 'file', 'Verträge']);
+    adm.push(['einstellungen', 'shield', isParent() ? 'Einstellungen' : 'Über die App']);
+    sec.push(['Verwaltung', adm]);
+    return sec;
   }
 
   function whoBar() {
@@ -571,17 +655,19 @@
 
   function render() {
     const html = (VIEWS[S.view] || vHeute)();
-    const active = S.view === 'gruppe' ? 'gruppen' : S.view;
-    document.getElementById('sidenav').innerHTML = navItems().map(([v, i, l, b]) => `<button class="${active === v ? 'on' : ''}" data-a="go" data-id="${v}" ${active === v ? 'aria-current="page"' : ''}>${ic(i)}<span>${l}</span>${b ? `<span class="badge">${b}</span>` : ''}</button>`).join('');
-    const bItems = [['heute', 'home', 'Heute'], ['kalender', 'cal', 'Kalender'], ['kueche', 'food', 'Küche']];
-    if (canGroups()) bItems.push(['gruppen', 'users', 'Gruppen']);
-    bItems.push(['mehr', 'more', 'Mehr']);
-    const bActive = ['aufgaben', 'familien', 'vertraege', 'einstellungen'].includes(S.view) ? 'mehr' : active;
-    document.getElementById('bnav').innerHTML = bItems.map(([v, i, l]) => `<button class="${bActive === v ? 'on' : ''}" data-a="go" data-id="${v}">${ic(i)}${l}</button>`).join('');
+    const active = ['gruppe', 'familien'].includes(S.view) ? 'gruppen' : S.view;
+    const plus = isParent() || mod('kueche');
+    document.getElementById('sidenew').innerHTML = plus ? `<button class="btn primary block newbtn" data-a="modal" data-id="quick">${ic('plus')} Neu</button>` : '';
+    document.getElementById('sidenav').innerHTML = navSections().map(([label, items]) => `<div class="nav-sec">${label}</div>` + items.map(([v, i, l, b]) => `<button class="${active === v ? 'on' : ''}" data-a="go" data-id="${v}" ${active === v ? 'aria-current="page"' : ''}>${ic(i)}<span>${l}</span>${b ? `<span class="badge">${b}</span>` : ''}</button>`).join('')).join('');
+    const bActive = ['kueche', 'gruppen', 'vertraege', 'einstellungen'].includes(active) ? 'mehr' : active;
+    const nb = ([v, i, l]) => `<button class="${bActive === v ? 'on' : ''}" data-a="go" data-id="${v}" ${bActive === v ? 'aria-current="page"' : ''}>${ic(i)}${l}</button>`;
+    const badgeMore = isParent() ? S.groups.reduce((n, g) => n + (g.admin ? g.requests.length : 0), 0) + S.connections.filter(c => c.status === 'eingehend').length : 0;
+    document.getElementById('bnav').innerHTML = nb(['heute', 'home', 'Heute']) + nb(['kalender', 'cal', 'Kalender']) + (plus ? `<button class="fab" data-a="modal" data-id="quick" aria-label="Neu anlegen">${ic('plus')}</button>` : '') + nb(['aufgaben', 'tasks', 'Aufgaben']) + nb(['mehr', 'more', 'Mehr']).replace('Mehr</button>', `Mehr${badgeMore ? `<span class="dot"></span>` : ''}</button>`);
     document.getElementById('sidewho').innerHTML = whoBar();
     document.getElementById('topwho').innerHTML = whoBar();
     const main = document.getElementById('main'), key = [S.current, S.view, S.gid, S.kTab, S.gTab, S.wk].join('|');
     main.innerHTML = html;
+    main.querySelectorAll('[data-top]').forEach(el => { el.style.top = el.dataset.top + 'px'; if (el.dataset.h) el.style.height = el.dataset.h + 'px'; if (el.dataset.w) { el.style.left = el.dataset.l + '%'; el.style.width = el.dataset.w + '%'; } });
     if (key !== lastKey) { main.classList.remove('enter'); void main.offsetWidth; main.classList.add('enter'); lastKey = key; }
     document.getElementById('modal').innerHTML = S.modal && MODALS[S.modal.t] ? MODALS[S.modal.t]() : '';
     S.popId = null;
@@ -689,6 +775,10 @@
       toast('Erinnerung am ' + fmt(rd) + ' im Kalender');
     },
     pair(id) { S.pair[id] = newCode(); },
+    module(k) { S.modules[k] = !mod(k); toast((S.modules[k] ? 'Eingeschaltet: ' : 'Ausgeschaltet: ') + { kueche: 'Küche', gruppen: 'Gemeinschaft', vertraege: 'Verträge' }[k]); },
+    intro() { S.modal = { t: 'intro', step: 1 }; },
+    intronext() { S.modal.step = (S.modal.step || 1) + 1; },
+    introdone() { S.introDone = true; S.modal = null; },
     install() { if (installPrompt) { installPrompt.prompt(); installPrompt.userChoice.finally(() => { installPrompt = null; render(); }); } return false; },
     share(id) {
       const [kind, ref] = id.split('|'), link = location.origin && location.origin !== 'null' ? location.origin + location.pathname : 'https://haushaltszentrale.netlify.app';
@@ -735,7 +825,7 @@
       S.modal = null; toast('Vertrag gespeichert');
     },
     shop(fd) { const n = addShop([fd.get('text').trim()], isParent() ? '' : 'von ' + me().name); toast(n ? 'Hinzugefügt' : 'Steht schon drauf'); },
-    wish(fd) { S.wishes.push({ id: uid(), who: S.current, text: fd.get('text').trim() }); toast('Wunsch gespeichert'); },
+    wish(fd) { S.wishes.push({ id: uid(), who: S.current, text: fd.get('text').trim() }); if (S.modal) S.modal = null; toast('Wunsch gespeichert'); },
     msg(fd, f) { const g = group(f.dataset.id); g.msgs.push({ from: isParent() ? me().name + ' ' + S.family : me().name, role: isParent() ? 'Eltern' : 'Spieler', text: fd.get('text').trim(), when: 'gerade eben', mine: true }); },
     joincode(fd) {
       const code = String(fd.get('code')).replace(/\D/g, '');

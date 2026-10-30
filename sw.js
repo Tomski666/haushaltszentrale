@@ -1,6 +1,6 @@
 /* Service Worker: macht die App installierbar und offline nutzbar.
    Netzwerk zuerst, damit neue Versionen sofort ankommen; ohne Netz aus dem Zwischenspeicher. */
-const CACHE = 'hz-v3';
+const CACHE = 'hz-v4';
 const SHELL = [
   './', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest',
   'fonts/plus-jakarta-sans-latin-wght-normal.woff2', 'fonts/plus-jakarta-sans-latin-ext-wght-normal.woff2',
