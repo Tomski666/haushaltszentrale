@@ -398,3 +398,17 @@ main{position:relative;z-index:0}
 main{overflow-x:clip}
 .tg-ev b.one{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tg-ev b.one small{display:inline;font-weight:600}
+
+/* Teilen */
+.share-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn.wa{background:#1f8f55;border-color:#1f8f55;color:#fff;text-decoration:none}
+.btn.wa:hover{background:#187a48}
+a.btn{text-decoration:none;color:inherit}
+a.btn.wa{color:#fff}
+.share-card .li .pill svg{width:12px;height:12px}
+
+/* Text für den Messenger */
+.share-edit{width:100%;min-height:150px;resize:vertical;background:var(--surface2);border:1.5px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:12px 14px;font:inherit;font-size:14px;line-height:1.55;margin:6px 0 2px}
+.share-edit:focus{outline:none;border-color:var(--accent)}
+.btn.copied{background:var(--accent-2);border-color:var(--accent-2)}
+.center{text-align:center}

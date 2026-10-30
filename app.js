@@ -70,6 +70,7 @@
     phoneapp: '<rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M10.5 18.5h3"/>',
     layers: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
     wave: '<path d="M7 11V6.5a1.5 1.5 0 0 1 3 0V10M10 9.5V4.5a1.5 1.5 0 0 1 3 0V10M13 9.5V6a1.5 1.5 0 0 1 3 0v6"/><path d="M16 10a1.5 1.5 0 0 1 3 0v3a8 8 0 0 1-8 8h-.5a7 7 0 0 1-5.6-2.8L2.8 15a1.6 1.6 0 0 1 2.5-2L7 15"/>',
+    copy: '<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 8.5V6a2.5 2.5 0 0 0-2.5-2.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/>',
     send: '<path d="M21 3 10.5 13.5M21 3l-6.5 18-4-7.5-7.5-4z"/>',
     sparkle: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
     hand: '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11M11 10.5V4a1.5 1.5 0 0 1 3 0v7M14 10.5V5.5a1.5 1.5 0 0 1 3 0V13"/><path d="M17 9.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-1a7 7 0 0 1-5.6-2.8L3.2 15a1.6 1.6 0 0 1 2.5-2L8 15"/>'
@@ -279,6 +280,19 @@
     return h + '</ul>';
   }
 
+  // ---------- Teilen: was gerade sinnvoll weiterzusagen ist ----------
+  function shareOptions() {
+    const o = [];
+    S.groups.filter(g => !g.pending).forEach(g => { const n = g.helpers.filter(x => !x.by).length; if (n) o.push(['helpers|' + g.id, 'hand', 'Helfer gesucht', `${esc(g.name)}, ${n} offen`, 'gold']); });
+    const sh = S.shopping.filter(x => !x.done).length;
+    if (mod('kueche') && sh) o.push(['shop|x', 'cart', 'Einkaufsliste', `${sh} Artikel`, 'warm']);
+    const ev = eventsOn(day(0), true).length;
+    if (ev) o.push(['day|' + day(0), 'cal', 'Tagesplan heute', `${ev} ${ev === 1 ? 'Termin' : 'Termine'}, ohne Namen`, '']);
+    S.groups.filter(g => g.admin && g.code).forEach(g => o.push(['invite|' + g.id, 'userplus', 'Einladung', esc(g.name), '']));
+    return o;
+  }
+  const shareList = (o) => `<ul class="list">${o.map(([id, i, l, d, tone]) => `<li class="li clickable" data-a="share" data-id="${id}"><span class="card-h"><span class="ic ${tone}">${ic(i)}</span></span><div class="grow"><div class="t">${l}</div><div class="xs muted">${d}</div></div><span class="pill green">${ic('copy')} Text</span></li>`).join('')}</ul>`;
+
   // ---------- Ansicht: Heute ----------
   function ring(done, total) {
     const r = 34, c = 2 * Math.PI * r, p = total ? done / total : 1;
@@ -325,7 +339,9 @@
     if (mi.warn && isParent()) meal += `<button class="btn soft sm mt" data-a="quickmeal" data-id="${t}">${ic('sparkle')} Schnelles Gericht wählen</button>`;
     meal += '</section>';
 
-    let right = mod('kueche') ? meal : '';
+    const so = shareOptions().slice(0, 3);
+    const shareCard = so.length ? `<section class="card share-card">${cardH('copy', 'Für den Messenger', `<button class="btn sm ghost" data-a="modal" data-id="sharepick">Alle ${ic('right')}</button>`)}<p class="xs muted">Fertigen Text kopieren und selbst in WhatsApp, Signal oder Threema einfügen. Für Eltern, die die App noch nicht nutzen.</p>${shareList(so)}</section>` : '';
+    let right = (mod('kueche') ? meal : '') + shareCard;
     const rides = eventsOn(t, true).filter(needRide);
     if (isParent() && rides.length) {
       right += `<section class="card">${cardH('car', 'Fahrten heute', rides.some(e => !e.bring || !e.pick) ? '<span class="pill warm">offen</span>' : '<span class="pill green">alles geklärt</span>')}<ul class="list">${rides.map(e => `<li class="li clickable" data-a="openevent" data-id="${e.oid}">${av(e.who[0])}<div class="grow"><div class="t">${esc(e.title)}</div><div class="xs muted">${e.start} bis ${e.end} · ${esc(e.place)}</div><div class="row wrap mt-xs"><span class="pill ${e.bring ? '' : 'warm'}">hin: ${esc(rideName(e.bring) || 'offen')}</span><span class="pill ${e.pick ? '' : 'warm'}">zurück: ${esc(rideName(e.pick) || 'offen')}</span></div></div>${ic('right')}</li>`).join('')}</ul></section>`;
@@ -436,7 +452,7 @@
   function kEinkauf() {
     const open = S.shopping.filter(s => !s.done), done = S.shopping.filter(s => s.done);
     const row = s => `<li class="li ${s.done ? 'done' : ''}"><button class="check ${s.done ? 'on' : ''} ${S.popId === s.id ? 'pop' : ''}" data-a="shop" data-id="${s.id}" aria-label="Erledigt">${s.done ? ic('tick') : ''}</button><div class="grow"><div class="t">${esc(s.text)}</div>${s.src ? `<div class="xs muted">${esc(s.src)}</div>` : ''}</div></li>`;
-    return `<div class="grid g2"><section class="card">${cardH('cart', 'Noch zu kaufen', `<div class="row"><span class="pill">${open.length}</span><button class="btn sm ghost icon-btn" data-a="share" data-id="shop|x" aria-label="Liste teilen">${ic('share')}</button></div>`)}<form class="addbar" data-f="shop"><input class="input" name="text" placeholder="Was fehlt?" required maxlength="60" aria-label="Artikel"><button class="btn primary">${ic('plus')}</button></form><ul class="list mt">${open.map(row).join('') || empty('Alles da. Die Liste ist leer.', 'cart')}</ul></section>
+    return `<div class="grid g2"><section class="card">${cardH('cart', 'Noch zu kaufen', `<div class="row"><span class="pill">${open.length}</span><button class="btn sm ghost icon-btn" data-a="share" data-id="shop|x" aria-label="Liste als Text kopieren">${ic('copy')}</button></div>`)}<form class="addbar" data-f="shop"><input class="input" name="text" placeholder="Was fehlt?" required maxlength="60" aria-label="Artikel"><button class="btn primary">${ic('plus')}</button></form><ul class="list mt">${open.map(row).join('') || empty('Alles da. Die Liste ist leer.', 'cart')}</ul></section>
       <section class="card">${cardH('tick', 'Im Wagen', done.length ? `<button class="btn sm ghost" data-a="clearshop">Leeren</button>` : '')}${done.length ? `<ul class="list">${done.map(row).join('')}</ul>` : empty('Noch nichts im Wagen.', 'tick')}</section></div>`;
   }
 
@@ -485,7 +501,7 @@
         left += `<section class="card">${cardH('userplus', 'Beitrittsanfragen', `<span class="badge">${g.requests.length}</span>`, 'warm')}<ul class="list">${g.requests.map(q => `<li class="li act">${famAv(q.fam)}<div class="grow"><div class="t">Familie ${esc(q.fam)}</div><div class="xs muted">für ${esc(q.kid)} · per Einladungscode</div></div><button class="btn sm ghost" data-a="decline" data-id="${q.id}">Ablehnen</button><button class="btn sm primary" data-a="accept" data-id="${q.id}">Bestätigen</button></li>`).join('')}</ul></section>`;
       }
       left += `<section class="card">${cardH('cal', 'Termine')}${ev.length ? `<ul class="list">${ev.map(e => `<li class="li"><div class="grow"><div class="t">${esc(e.title)}</div><div class="xs muted">${relDay(e.date)}, ${e.start} Uhr</div></div><div class="stack">${whoKids.map(k => { const v = S.rsvp[e.oid + '|' + k]; return `<div class="row">${isParent() ? av(k, 'sm') : ''}<div class="seg"><button class="yes ${v === 'ja' ? 'on' : ''}" data-a="rsvp" data-id="${e.oid}|${k}|ja">Zusage</button><button class="no ${v === 'nein' ? 'on' : ''}" data-a="rsvp" data-id="${e.oid}|${k}|nein">Absage</button></div></div>`; }).join('')}</div></li>`).join('')}</ul>` : empty('Keine Termine.')}</section>`;
-      const right = `<section class="card">${cardH('hand', 'Helferliste', isParent() || g.admin ? `<button class="btn sm" data-a="share" data-id="helpers|${g.id}">${ic('share')} Teilen</button>` : '', 'gold')}<ul class="list">${g.helpers.map(x => `<li class="li"><span class="muted">${ic(x.cake ? 'cake' : x.task.includes('Fahr') ? 'car' : 'hand')}</span><div class="grow"><div class="t">${esc(x.task)}</div><div class="xs muted">${relDay(x.date)}${x.by ? ' · ' + esc(x.by) : ''}</div></div>${x.by ? '<span class="pill green">vergeben</span>' : isParent() ? `<button class="btn sm soft" data-a="helper" data-id="${g.id}|${x.id}">Übernehmen</button>` : '<span class="pill">offen</span>'}</li>`).join('')}</ul>${isParent() ? `<div class="hint gray">${ic('info')}<div class="grow">Wer einen Kuchen übernimmt, bekommt die Zutaten automatisch auf die Einkaufsliste.</div></div>` : ''}</section>`;
+      const right = `<section class="card">${cardH('hand', 'Helferliste', isParent() || g.admin ? `<button class="btn sm" data-a="share" data-id="helpers|${g.id}">${ic('copy')} Text kopieren</button>` : '', 'gold')}<ul class="list">${g.helpers.map(x => `<li class="li"><span class="muted">${ic(x.cake ? 'cake' : x.task.includes('Fahr') ? 'car' : 'hand')}</span><div class="grow"><div class="t">${esc(x.task)}</div><div class="xs muted">${relDay(x.date)}${x.by ? ' · ' + esc(x.by) : ''}</div></div>${x.by ? '<span class="pill green">vergeben</span>' : isParent() ? `<button class="btn sm soft" data-a="helper" data-id="${g.id}|${x.id}">Übernehmen</button>` : '<span class="pill">offen</span>'}</li>`).join('')}</ul>${isParent() ? `<div class="hint gray">${ic('info')}<div class="grow">Wer einen Kuchen übernimmt, bekommt die Zutaten automatisch auf die Einkaufsliste.</div></div>` : ''}</section>`;
       h += `<div class="grid g2"><div class="stack">${left}</div><div class="stack">${right}</div></div>`;
     } else if (S.gTab === 'msgs') {
       h += `<section class="card">${cardH('msg', 'Gruppennachrichten')}<div class="hint green">${ic('shield')}<div class="grow">Nur Nachrichten an die ganze Gruppe. Keine Privatchats, keine Telefonnummern.</div></div><div class="mt">${g.msgs.map(m => `<div class="msg ${m.mine ? 'mine' : ''}">${m.mine ? av(S.current) : famAv(m.from.replace('Familie ', '').replace('Trainer ', ''))}<div class="bubble"><div class="from">${esc(m.from)} <span class="muted xs">· ${esc(m.role)} · ${esc(m.when)}</span></div><div class="small">${esc(m.text)}</div></div></div>`).join('')}</div><form class="addbar" data-f="msg" data-id="${g.id}"><input class="input" name="text" placeholder="Nachricht an die ganze Gruppe" required maxlength="300" aria-label="Nachricht"><button class="btn primary">${ic('send')}</button></form></section>`;
@@ -573,7 +589,12 @@
       if (isParent()) t.push(['newevent', 'cal', 'Termin', '']);
       if (isParent()) t.push(['newtask', 'tasks', 'Aufgabe', '']);
       if (mod('kueche')) t.push(['quickshop', 'cart', 'Einkauf', 'warm'], ['quickwish', 'sparkle', 'Essenswunsch', 'gold']);
+      if (isParent()) t.push(['sharepick', 'copy', 'Text kopieren', '']);
       return sheet('Neu anlegen', `<div class="qtiles">${t.map(([m, i, l, tone]) => `<button class="tile" data-a="modal" data-id="${m}"><span class="card-h"><span class="ic ${tone}">${ic(i)}</span></span><b>${l}</b></button>`).join('')}</div>`);
+    },
+    sharepick() {
+      const o = shareOptions();
+      return sheet('Text für den Messenger', `<p class="small muted">Wählt aus, was ihr weitersagen wollt. Die App erstellt den Text, ihr kopiert ihn und fügt ihn selbst in euren Messenger ein.</p>${o.length ? shareList(o) : empty('Gerade gibt es nichts weiterzusagen.', 'copy')}`);
     },
     quickshop() {
       const open = S.shopping.filter(x => !x.done).slice(-5).reverse();
@@ -590,13 +611,13 @@
       return sheet('', `<div class="intro">${dots}${emptyArt(pages[0])}<h2>${pages[1]}</h2><p class="muted">${pages[2]}</p>${st === 2 ? `<div class="row intro-avs">${S.members.map(m => av(m.id, 'lg')).join('')}</div>` : ''}<div class="row between mt"><button class="btn ghost" data-a="introdone">Überspringen</button><button class="btn primary" data-a="${st < 3 ? 'intronext' : 'introdone'}">${st < 3 ? 'Weiter' : 'Los geht’s'}</button></div></div>`);
     },
     share() {
-      return sheet(esc(S.modal.title), `<div class="share-prev">${esc(S.modal.text)}</div><div class="hint green">${ic('shield')}<div class="grow">Der Text verlässt die Haushaltszentrale. Er enthält deshalb keine Namen von Kindern oder Familien und keine Kontaktdaten.</div></div><div class="row mt"><button class="btn" data-a="copytext">Kopieren</button><button class="btn primary grow" data-a="doshare">${ic('share')} Teilen</button></div><p class="xs muted mt">Öffnet das Teilen-Menü deines Geräts: WhatsApp, Signal, Threema, Mail.</p>`);
+      return sheet(esc(S.modal.title), `<label class="lbl" for="share-text">Text, den ihr kopiert</label><textarea id="share-text" class="share-edit" rows="7" spellcheck="true">${esc(S.modal.text)}</textarea><div class="hint green">${ic('shield')}<div class="grow">Die App verschickt nichts. Namen von Kindern und Familien sowie Kontaktdaten werden nicht übernommen. Prüft den Text kurz und passt ihn bei Bedarf an.</div></div><button class="btn primary block mt ${S.modal.copied ? 'copied' : ''}" data-a="copytext">${S.modal.copied ? ic('tick') + ' Kopiert' : ic('copy') + ' Text kopieren'}</button>${S.modal.copied ? `<p class="small mt center">Jetzt in WhatsApp, Signal oder Threema einfügen.</p>` : ''}`);
     },
     openevent() {
       const e = findOcc(S.modal.id); if (!e) return '';
       const g = e.group ? group(e.group) : null;
       const ride = needRide(e) ? (isParent() ? `<li class="li"><span class="muted">${ic('car')}</span><div class="grow fgrid"><div class="field"><label for="r-b">Hinbringen</label><select id="r-b" data-c="ride" data-id="${e.id}|bring">${rideOptions(e.bring)}</select></div><div class="field"><label for="r-p">Abholen</label><select id="r-p" data-c="ride" data-id="${e.id}|pick">${rideOptions(e.pick)}</select></div>${e.repeat ? '<div class="xs muted span2">Gilt für die ganze Serie.</div>' : ''}</div></li>` : `<li class="li"><span class="muted">${ic('car')}</span><div class="grow">Hin: ${esc(rideName(e.bring) || 'noch offen')}<br>Zurück: ${esc(rideName(e.pick) || 'noch offen')}</div></li>`) : '';
-      return sheet(esc(e.title), `<ul class="list"><li class="li"><span class="muted">${ic('clock')}</span><div class="grow">${fmtLong(e.date)}<div class="small muted">${e.start ? e.start + (e.end ? ' bis ' + e.end : '') + ' Uhr' : 'ganztägig'}${e.repeat ? ' · jede Woche' : ''}</div></div></li>${ride}${e.place ? `<li class="li"><span class="muted">${ic('pin')}</span><div class="grow">${esc(e.place)}</div></li>` : ''}${e.note ? `<li class="li"><span class="muted">${ic('info')}</span><div class="grow">${esc(e.note)}</div></li>` : ''}<li class="li"><span class="muted">${ic('users')}</span><div class="grow row wrap">${e.who.map(w => `<span class="row">${av(w, 'sm')}<span class="small">${esc(member(w).name)}</span></span>`).join('')}</div></li>${g ? `<li class="li"><span class="muted">${ic(g.icon)}</span><div class="grow">${esc(g.name)}</div></li>` : ''}</ul><div class="row between wrap mt">${isParent() ? (e.repeat ? `<div class="row wrap"><button class="btn danger sm" data-a="delocc" data-id="${e.oid}">${ic('trash')} Nur diesen</button><button class="btn danger sm" data-a="delevent" data-id="${e.id}">Ganze Serie</button></div>` : `<button class="btn danger" data-a="delevent" data-id="${e.id}">${ic('trash')} Löschen</button>`) : '<span></span>'}<div class="row"><button class="btn" data-a="share" data-id="event|${e.oid}">${ic('share')} Teilen</button><button class="btn primary" data-a="close">Fertig</button></div></div>`);
+      return sheet(esc(e.title), `<ul class="list"><li class="li"><span class="muted">${ic('clock')}</span><div class="grow">${fmtLong(e.date)}<div class="small muted">${e.start ? e.start + (e.end ? ' bis ' + e.end : '') + ' Uhr' : 'ganztägig'}${e.repeat ? ' · jede Woche' : ''}</div></div></li>${ride}${e.place ? `<li class="li"><span class="muted">${ic('pin')}</span><div class="grow">${esc(e.place)}</div></li>` : ''}${e.note ? `<li class="li"><span class="muted">${ic('info')}</span><div class="grow">${esc(e.note)}</div></li>` : ''}<li class="li"><span class="muted">${ic('users')}</span><div class="grow row wrap">${e.who.map(w => `<span class="row">${av(w, 'sm')}<span class="small">${esc(member(w).name)}</span></span>`).join('')}</div></li>${g ? `<li class="li"><span class="muted">${ic(g.icon)}</span><div class="grow">${esc(g.name)}</div></li>` : ''}</ul><div class="row between wrap mt">${isParent() ? (e.repeat ? `<div class="row wrap"><button class="btn danger sm" data-a="delocc" data-id="${e.oid}">${ic('trash')} Nur diesen</button><button class="btn danger sm" data-a="delevent" data-id="${e.id}">Ganze Serie</button></div>` : `<button class="btn danger" data-a="delevent" data-id="${e.id}">${ic('trash')} Löschen</button>`) : '<span></span>'}<div class="row"><button class="btn" data-a="share" data-id="event|${e.oid}">${ic('copy')} Als Text</button><button class="btn primary" data-a="close">Fertig</button></div></div>`);
     },
     newevent() {
       return sheet('Neuer Termin', `<form data-f="event"><div class="field"><label for="f-t">Was?</label><input id="f-t" name="title" required maxlength="80" placeholder="z. B. Elterngespräch"></div><div class="fgrid"><div class="field"><label for="f-d">Datum</label><input id="f-d" name="date" type="date" value="${day(0)}" required></div><div class="field"><label for="f-p">Ort</label><input id="f-p" name="place" maxlength="60"></div><div class="field"><label for="f-s">Beginn</label><input id="f-s" name="start" type="time" value="17:00" required></div><div class="field"><label for="f-e">Ende</label><input id="f-e" name="end" type="time" value="18:00"></div></div><div class="field"><label for="f-w">Für wen?</label><select id="f-w" name="who">${memberOpts()}<option value="all">Ganze Familie</option></select></div><label class="row small"><input type="checkbox" name="repeat"> Jede Woche wiederholen</label><button class="btn primary block mt">Eintragen</button></form>`);
@@ -617,13 +638,13 @@
     creategroup() {
       if (S.modal.step === 2) {
         const g = group(S.modal.gid);
-        return sheet('Gruppe angelegt', `<p class="small">Teilt diesen Code mit den Familien. Jede Anfrage bestätigt ihr selbst.</p><div class="code">${g.code}</div><div class="hint gray">${ic('info')}<div class="grow">Im Produkt zusätzlich als QR-Code und Link. Codes lassen sich jederzeit widerrufen und neu erzeugen.</div></div><div class="row mt"><button class="btn" data-a="share" data-id="invite|${g.id}">${ic('share')} Einladung teilen</button><button class="btn primary grow" data-a="opengroup" data-id="${g.id}">Zur Gruppe</button></div>`);
+        return sheet('Gruppe angelegt', `<p class="small">Teilt diesen Code mit den Familien. Jede Anfrage bestätigt ihr selbst.</p><div class="code">${g.code}</div><div class="hint gray">${ic('info')}<div class="grow">Im Produkt zusätzlich als QR-Code und Link. Codes lassen sich jederzeit widerrufen und neu erzeugen.</div></div><div class="row mt"><button class="btn" data-a="share" data-id="invite|${g.id}">${ic('copy')} Einladung kopieren</button><button class="btn primary grow" data-a="opengroup" data-id="${g.id}">Zur Gruppe</button></div>`);
       }
       return sheet('Gruppe gründen', `<form data-f="creategroup"><div class="field"><label for="f-n">Name der Gruppe</label><input id="f-n" name="name" required maxlength="60" placeholder="z. B. Kita Sonnenblume, Igelgruppe"></div><div class="fgrid"><div class="field"><label for="f-t">Art</label><select id="f-t" name="typ"><option>Kita-Gruppe</option><option>Klasse</option><option>Mannschaft</option><option>Förderverein</option><option>Sonstige</option></select></div><div class="field"><label for="f-k">Kind</label><select id="f-k" name="kid">${S.members.filter(m => m.role === 'kind').map(m => `<option value="${m.id}" ${m.id === 'k3' ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></div></div><div class="hint gray">${ic('shield')}<div class="grow">Als Gruppenverwalter seid ihr für die Daten der Gruppe verantwortlich. Die Haushaltszentrale verarbeitet sie in eurem Auftrag.</div></div><label class="row small mt"><input type="checkbox" name="av" required> Ich übernehme die Verwaltung und schließe den Vertrag zur Auftragsverarbeitung ab.</label><button class="btn primary block mt">Gruppe anlegen</button></form>`);
     },
     invite() {
       const g = group(S.gid);
-      return sheet('Familien einladen', `<p class="small">Teilt diesen Code oder den Link mit den Familien der Gruppe <b>${esc(g.name)}</b>.</p><div class="code">${g.code || '000 000'}</div><div class="row"><button class="btn" data-a="newcode" data-id="${g.id}">Neuer Code</button><button class="btn primary grow" data-a="share" data-id="invite|${g.id}">${ic('share')} Einladung teilen</button></div><div class="hint gray">${ic('info')}<div class="grow">Ein neuer Code macht den alten sofort ungültig. Beitritte bestätigt ihr einzeln.</div></div>`);
+      return sheet('Familien einladen', `<p class="small">Teilt diesen Code oder den Link mit den Familien der Gruppe <b>${esc(g.name)}</b>.</p><div class="code">${g.code || '000 000'}</div><div class="row"><button class="btn" data-a="newcode" data-id="${g.id}">Neuer Code</button><button class="btn primary grow" data-a="share" data-id="invite|${g.id}">${ic('copy')} Einladung kopieren</button></div><div class="hint gray">${ic('info')}<div class="grow">Ein neuer Code macht den alten sofort ungültig. Beitritte bestätigt ihr einzeln.</div></div>`);
     },
     connectpick() {
       const known = [];
@@ -789,25 +810,26 @@
         title = 'Helfer gesucht';
         text = `${g.name}: Wir suchen noch Unterstützung.\n${open.map(x => `• ${x.task} (${fmt(x.date)})`).join('\n')}\n\nEintragen in der Haushaltszentrale: ${link}`;
       } else if (kind === 'event') {
-        const e = findOcc(ref); title = 'Termin teilen';
+        const e = findOcc(ref); title = 'Termin als Text';
         text = `${e.title}\n${fmtLong(e.date)}${e.start ? ', ' + e.start + (e.end ? ' bis ' + e.end : '') + ' Uhr' : ''}${e.place ? '\nOrt: ' + e.place : ''}`;
+      } else if (kind === 'day') {
+        const list = eventsOn(ref, true); title = 'Tagesplan als Text';
+        text = `Unser Tag, ${fmtLong(ref)}:\n${list.map(e => `• ${e.start ? e.start + ' ' : ''}${e.title}${e.place ? ' (' + e.place + ')' : ''}`).join('\n')}`;
       } else if (kind === 'shop') {
         const open = S.shopping.filter(x => !x.done); if (!open.length) { toast('Die Liste ist leer'); return; }
-        title = 'Einkaufsliste teilen'; text = `Einkaufsliste:\n${open.map(x => '• ' + x.text).join('\n')}`;
+        title = 'Einkaufsliste als Text'; text = `Einkaufsliste:\n${open.map(x => '• ' + x.text).join('\n')}`;
       } else if (kind === 'invite') {
-        const g = group(ref); title = 'Einladung teilen';
+        const g = group(ref); title = 'Einladung als Text';
         text = `Hallo zusammen, wir organisieren „${g.name}“ ab sofort in der Haushaltszentrale.\nBeitreten mit dem Code ${g.code}\n${link}\n\nTelefonnummern bleiben privat, solange ihr sie nicht selbst freigebt.`;
       }
-      S.modal = { t: 'share', title, text };
-    },
-    doshare() {
-      const text = S.modal.text;
-      if (navigator.share) { navigator.share({ text }).then(() => { S.modal = null; render(); toast('Geteilt'); }).catch(() => {}); return false; }
-      A.copytext(); return false;
+      S.modal = { t: 'share', title, text, copied: false };
     },
     copytext() {
-      const text = S.modal.text;
-      try { navigator.clipboard.writeText(text).then(() => toast('Kopiert. Jetzt in WhatsApp, Signal oder Threema einfügen.'), () => toast('Kopieren nicht möglich')); } catch (e) { toast('Kopieren nicht möglich'); }
+      const ta = document.getElementById('share-text'), text = ta ? ta.value : S.modal.text;
+      S.modal.text = text;
+      const ok = () => { S.modal.copied = true; render(); };
+      const fallback = () => { try { ta.focus(); ta.select(); if (document.execCommand('copy')) ok(); else toast('Bitte Text markieren und manuell kopieren'); } catch (e) { toast('Bitte Text markieren und manuell kopieren'); } };
+      if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(ok, fallback); else fallback();
       return false;
     },
     reset() { if (window.confirm('Alle Beispieldaten zurücksetzen?')) { S = seed(); toast('Zurückgesetzt'); } }

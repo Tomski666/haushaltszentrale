@@ -18,7 +18,7 @@ Klickbarer Prototyp für Validierungsgespräche. Nur fiktive Beispieldaten, kein
 - Ferien und Feiertage NRW (Schuljahr 2026/27) im Kalender, auf dem PC als Zeitraster.
 - Ben (14) hat Stufe 3 mit Gruppen, Lena (11) Stufe 2 ohne Gruppen, Mia (6) Stufe 1 ohne eigenen Zugang.
 - Gruppe beitreten mit dem Demo-Code 482 913, eigene Gruppe gründen unter Gruppen.
-- Teilen-Knopf bei Terminen, Helferlisten, Einkaufsliste und Einladungen. Der Text enthält keine Namen.
+- Text für den Messenger: Karte auf der Startseite, Kachel „Text kopieren“ im Plus-Knopf, außerdem bei Terminen, Helferlisten, Einkaufsliste und Einladungen. Die App verschickt nichts, der Text wird kopiert und selbst in WhatsApp, Signal oder Threema eingefügt.
 - Fahrten: Termin eines Kindes antippen und Hinbringen sowie Abholen festlegen.
 - Kinderansicht: Lena oder Ben wählen und alle Aufgaben abhaken.
 - Als App installieren: Hinweise unter Einstellungen.
