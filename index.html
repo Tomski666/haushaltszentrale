@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#2f5d50">
+<title>Haushaltszentrale Prototyp</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f5d50'/%3E%3Cpath d='M8 17l8-7 8 7v8H8z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32" width="30" height="30"><rect width="32" height="32" rx="8" fill="currentColor"/><path d="M8 17l8-7 8 7v8H8z" fill="#fff"/></svg></span>
+    <div><strong>Haushaltszentrale</strong><small>Prototyp mit Beispieldaten</small></div>
+  </div>
+  <label class="who"><span class="sr">Ansicht als</span><select id="who" data-c="who"></select></label>
+</header>
+<main id="main" tabindex="-1"></main>
+<nav id="nav" class="nav" aria-label="Hauptnavigation"></nav>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>
