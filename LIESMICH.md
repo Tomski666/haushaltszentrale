@@ -13,7 +13,13 @@ Klickbarer Prototyp für Validierungsgespräche. Nur fiktive Beispieldaten, kein
 
 - Oben rechts zwischen Elternteil und Kindern umschalten, um die Rollenstufen zu zeigen.
 - Ben (14) hat Stufe 3 mit Gruppen, Lena (11) Stufe 2 ohne Gruppen, Mia (6) Stufe 1 ohne eigenen Zugang.
-- Daten liegen nur im Browser (localStorage). Zurücksetzen unter Mehr > Familie und Datenschutz.
+- Gruppe beitreten mit dem Demo-Code 482 913, eigene Gruppe gründen unter Gruppen.
+- Sandra verwaltet die Klassenpflegschaft 6b und sieht dort Beitrittsanfragen und die Kontaktliste.
+- Daten liegen nur im Browser (localStorage). Zurücksetzen unter Einstellungen.
+
+## Neue Version hochladen
+
+Im bestehenden Netlify-Projekt auf „Deploys“ gehen und den entpackten Ordner erneut in das Upload-Feld ziehen. Der Link bleibt gleich.
 
 ## Technik und Sicherheit
 

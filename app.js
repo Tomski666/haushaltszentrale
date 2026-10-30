@@ -1,51 +1,94 @@
 'use strict';
-/* Haushaltszentrale Prototyp
+/* Haushaltszentrale Prototyp v2
    Nur fiktive Beispieldaten. Speicherung ausschließlich im Browser (localStorage), keine Übertragung. */
-(function () {
-  var KEY = 'haushaltszentrale-demo-v1';
-  var WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
-  var WDL = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-  var MON = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+(() => {
+  const KEY = 'haushaltszentrale-demo-v2';
+  const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+  const WDL = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+  const MON = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 
   // ---------- Hilfsfunktionen ----------
-  function pad(n) { return String(n).padStart(2, '0'); }
-  function iso(x) { return x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate()); }
-  function day(off) { var x = new Date(); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() + off); return iso(x); }
-  function parse(s) { var p = s.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2], 12); }
-  function fmt(s) { var x = parse(s); return WD[x.getDay()] + ', ' + x.getDate() + '.' + (x.getMonth() + 1) + '.'; }
-  function fmtLong(s) { var x = parse(s); return WDL[x.getDay()] + ', ' + x.getDate() + '. ' + MON[x.getMonth()]; }
-  function diff(a, b) { return Math.round((parse(b) - parse(a)) / 86400000); }
-  function addMonths(s, n) { var x = parse(s); x.setMonth(x.getMonth() - n); return iso(x); }
-  function uid() { return Math.random().toString(36).slice(2, 9); }
-  function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-    });
-  }
-  function eur(n) { return n.toFixed(2).replace('.', ',') + ' €'; }
-  function byTime(a, b) { return (a.date + a.start).localeCompare(b.date + b.start); }
+  const pad = n => String(n).padStart(2, '0');
+  const iso = x => `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`;
+  const day = off => { const x = new Date(); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() + off); return iso(x); };
+  const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d, 12); };
+  const fmt = s => { const x = parse(s); return `${WD[x.getDay()]}, ${x.getDate()}.${x.getMonth() + 1}.`; };
+  const fmtLong = s => { const x = parse(s); return `${WDL[x.getDay()]}, ${x.getDate()}. ${MON[x.getMonth()]}`; };
+  const diff = (a, b) => Math.round((parse(b) - parse(a)) / 86400000);
+  const minusMonths = (s, n) => { const x = parse(s); x.setMonth(x.getMonth() - n); return iso(x); };
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const eur = n => n.toFixed(2).replace('.', ',') + ' €';
+  const byTime = (a, b) => (a.date + (a.start || '00:00')).localeCompare(b.date + (b.start || '00:00'));
+  const nowHM = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const relDay = d => { const n = diff(day(0), d); return n === 0 ? 'Heute' : n === 1 ? 'Morgen' : fmt(d); };
+
+  // ---------- Icons ----------
+  const IC = {
+    home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+    cal: '<rect x="3" y="4.5" width="18" height="16.5" rx="3"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>',
+    tasks: '<rect x="3" y="3" width="18" height="18" rx="5"/><path d="m8 12 3 3 5-6"/>',
+    food: '<path d="M5 2v7a3 3 0 0 0 6 0V2M8 2v20M18 15V2a4 4 0 0 0-4 4v6a3 3 0 0 0 3 3h1zm0 0v7"/>',
+    users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3.2-6 6.5-6s6 2.5 6.5 6"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 14.2c3 .1 5 2.3 5.5 5.3"/>',
+    link: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
+    file: '<path d="M14 2.5H7a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7.5z"/><path d="M14 2.5v5h5M9 13h6M9 17h4"/>',
+    shield: '<path d="M12 2.5 4.5 5.5v6c0 4.7 3.2 8.6 7.5 10 4.3-1.4 7.5-5.3 7.5-10v-6z"/><path d="m9 12 2 2 4-4"/>',
+    more: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    x: '<path d="M6 6l12 12M18 6 6 18"/>',
+    tick: '<path d="m5 12.5 4.5 4.5L19 7"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    cart: '<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h3l2.6 12.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L21.5 8H6.4"/>',
+    bell: '<path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9"/><path d="M10 20a2.2 2.2 0 0 0 4 0"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.5"/>',
+    key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M14 9l2 2"/>',
+    userplus: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3.2-6 6.5-6s6 2.5 6.5 6M19 8v6M16 11h6"/>',
+    right: '<path d="m9 6 6 6-6 6"/>',
+    left: '<path d="m15 6-6 6 6 6"/>',
+    trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+    phone: '<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2"/>',
+    pin: '<path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>',
+    cake: '<path d="M4 21v-8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8M2.5 21h19M4 16c1.5 1 3 1 4.5 0s3-1 4.5 0 3 1 4.5 0 2.5-1 2.5-1M12 11V7M12 3.5v1"/>',
+    car: '<path d="M5 16h14M4 16v3h3v-2M17 17v2h3v-3M4 16l1.5-5.5A2 2 0 0 1 7.4 9h9.2a2 2 0 0 1 1.9 1.5L20 16"/>',
+    msg: '<path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-9l-5 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/>',
+    euro: '<path d="M17 6.5A7 7 0 1 0 17 17.5M4 10h9M4 14h9"/>',
+    ball: '<circle cx="12" cy="12" r="9"/><path d="M12 3c2.5 2.5 3.5 5.5 3.5 9s-1 6.5-3.5 9M12 3C9.5 5.5 8.5 8.5 8.5 12s1 6.5 3.5 9M3.5 9h17M3.5 15h17"/>',
+    school: '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5M22 9v6"/>',
+    heart: '<path d="M12 20s-7.5-4.5-9-9.5C2 6.5 6 4 9 5.5c1.3.6 2.3 1.8 3 3 .7-1.2 1.7-2.4 3-3 3-1.5 7 1 6 5-1.5 5-9 9.5-9 9.5z"/>',
+    lock: '<rect x="4.5" y="10.5" width="15" height="10.5" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>',
+    send: '<path d="M21 3 10.5 13.5M21 3l-6.5 18-4-7.5-7.5-4z"/>',
+    sparkle: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
+    hand: '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11M11 10.5V4a1.5 1.5 0 0 1 3 0v7M14 10.5V5.5a1.5 1.5 0 0 1 3 0V13"/><path d="M17 9.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-1a7 7 0 0 1-5.6-2.8L3.2 15a1.6 1.6 0 0 1 2.5-2L8 15"/>'
+  };
+  const ic = (n, cls = '') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || ''}</svg>`;
 
   // ---------- Beispieldaten ----------
+  const famList = (arr) => arr.map(([fam, kids, phone, addr]) => ({ fam, kids, phone: phone || '', addr: addr || '' }));
   function seed() {
     return {
-      v: 1, current: 'm1', view: 'heute', kTab: 'plan',
+      v: 2, current: 'm1', view: 'heute', kTab: 'plan', gid: null, gTab: 'info', wk: 0, modal: null,
+      family: 'Neumann', phone: '0160 5550142', addr: 'Lindenweg 4, Musterstadt',
       members: [
         { id: 'm1', name: 'Sandra', role: 'eltern', color: 0 },
         { id: 'm2', name: 'Jens', role: 'eltern', color: 1 },
         { id: 'k1', name: 'Ben', role: 'kind', stufe: 3, alter: 14, color: 2 },
         { id: 'k2', name: 'Lena', role: 'kind', stufe: 2, alter: 11, color: 3 },
-        { id: 'k3', name: 'Mia', role: 'kind', stufe: 1, alter: 6, color: 1 }
+        { id: 'k3', name: 'Mia', role: 'kind', stufe: 1, alter: 6, color: 4 }
       ],
       events: [
-        { id: 'e1', date: day(0), start: '16:00', end: '17:30', title: 'Leichtathletik', who: ['k2'] },
-        { id: 'e2', date: day(0), start: '17:30', end: '19:00', title: 'Handballtraining', who: ['k1'], group: 'g1' },
-        { id: 'e3', date: day(0), start: '19:30', end: '21:00', title: 'Elternabend Klasse 6b', who: ['m1'], group: 'g2' },
-        { id: 'e4', date: day(1), start: '15:00', end: '15:45', title: 'Zahnarzt', who: ['k2', 'm2'] },
-        { id: 'e5', date: day(1), start: '08:00', end: '12:00', title: 'Kita-Ausflug (Rucksack, Brotdose)', who: ['k3'] },
-        { id: 'e6', date: day(2), start: '17:30', end: '19:00', title: 'Handballtraining', who: ['k1'], group: 'g1' },
-        { id: 'e7', date: day(3), start: '08:00', end: '', title: 'Wandertag (Brotdose, Regenjacke)', who: ['k2'], group: 'g2' },
-        { id: 'e8', date: day(4), start: '14:00', end: '16:00', title: 'Heimspiel gegen TV Beispielhausen', who: ['k1', 'k2', 'k3', 'm1', 'm2'], group: 'g1' },
-        { id: 'e9', date: day(5), start: '12:30', end: '', title: 'Mittagessen bei Oma und Opa', who: ['m1', 'm2', 'k1', 'k2', 'k3'] }
+        { id: 'e1', date: day(0), start: '07:15', end: '', title: 'Ben: Sportzeug einpacken', who: ['k1'] },
+        { id: 'e2', date: day(0), start: '16:00', end: '17:30', title: 'Leichtathletik', who: ['k2'], place: 'Sportplatz Nord' },
+        { id: 'e3', date: day(0), start: '17:30', end: '19:00', title: 'Handballtraining', who: ['k1'], group: 'g1', place: 'Sporthalle am Park' },
+        { id: 'e4', date: day(0), start: '19:30', end: '21:00', title: 'Elternabend Klasse 6b', who: ['m1'], group: 'g2', place: 'Gymnasium, Raum 104' },
+        { id: 'e5', date: day(1), start: '08:00', end: '12:00', title: 'Kita-Ausflug', who: ['k3'], note: 'Rucksack, Brotdose' },
+        { id: 'e6', date: day(1), start: '15:00', end: '15:45', title: 'Zahnarzt', who: ['k2', 'm2'] },
+        { id: 'e7', date: day(2), start: '17:30', end: '19:00', title: 'Handballtraining', who: ['k1'], group: 'g1', place: 'Sporthalle am Park' },
+        { id: 'e8', date: day(3), start: '08:00', end: '13:00', title: 'Wandertag', who: ['k2'], group: 'g2', note: 'Brotdose, Regenjacke' },
+        { id: 'e9', date: day(4), start: '14:00', end: '16:00', title: 'Heimspiel gegen TV Beispielhausen', who: ['k1', 'k2', 'k3', 'm1', 'm2'], group: 'g1' },
+        { id: 'e10', date: day(5), start: '12:30', end: '15:00', title: 'Mittagessen bei Oma und Opa', who: ['m1', 'm2', 'k1', 'k2', 'k3'] },
+        { id: 'e11', date: day(6), start: '10:00', end: '11:00', title: 'Schwimmkurs', who: ['k3', 'm2'] },
+        { id: 'e12', date: day(8), start: '19:00', end: '20:30', title: 'Fördervereinssitzung', who: ['m2'] },
+        { id: 'e13', date: day(9), start: '17:30', end: '19:00', title: 'Handballtraining', who: ['k1'], group: 'g1' }
       ],
       tasks: [
         { id: 't1', title: 'Spülmaschine ausräumen', who: 'k1', due: day(0), done: false },
@@ -53,30 +96,30 @@
         { id: 't3', title: 'Elternbrief Wandertag unterschreiben', who: 'm2', due: day(0), done: false },
         { id: 't4', title: 'Sportzeug waschen', who: 'm1', due: day(1), done: false },
         { id: 't5', title: 'Zimmer aufräumen', who: 'k2', due: day(2), done: false },
-        { id: 't6', title: 'Hausaufgaben Mathe vorzeigen', who: 'k1', due: day(1), done: false }
+        { id: 't6', title: 'Hausaufgaben Mathe vorzeigen', who: 'k1', due: day(1), done: false },
+        { id: 't7', title: 'Spielzeug wegräumen', who: 'k3', due: day(0), done: true },
+        { id: 't8', title: 'Geschenk für Emmas Geburtstag', who: 'm1', due: day(10), done: false }
       ],
       recipes: [
-        { id: 'r1', name: 'Pasta mit Tomatensoße', min: 20, fast: true, z: ['Spaghetti', 'Passierte Tomaten', 'Zwiebel', 'Knoblauch', 'Parmesan'] },
-        { id: 'r2', name: 'Ofengemüse mit Feta', min: 40, fast: false, z: ['Paprika', 'Zucchini', 'Kartoffeln', 'Feta', 'Rosmarin'] },
-        { id: 'r3', name: 'Pfannkuchen mit Apfelmus', min: 25, fast: true, z: ['Mehl', 'Milch', 'Eier', 'Apfelmus'] },
-        { id: 'r4', name: 'Chili sin Carne mit Reis', min: 45, fast: false, z: ['Kidneybohnen', 'Mais', 'Tomaten in Stücken', 'Paprika', 'Reis'] },
-        { id: 'r5', name: 'Wraps mit Hähnchen', min: 20, fast: true, z: ['Tortilla-Wraps', 'Hähnchenbrust', 'Salat', 'Joghurt', 'Gurke'] },
-        { id: 'r6', name: 'Rührkuchen', min: 70, fast: false, cake: true, z: ['Mehl', 'Zucker', 'Butter', 'Eier', 'Backpulver'] }
+        { id: 'r1', name: 'Pasta mit Tomatensoße', min: 20, fast: true, pal: ['#f6cf8e', '#e8925d', '#e9b44c', '#d9472b', '#7bb661'], z: ['Spaghetti', 'Passierte Tomaten', 'Zwiebel', 'Knoblauch', 'Parmesan'] },
+        { id: 'r2', name: 'Ofengemüse mit Feta', min: 40, fast: false, pal: ['#b5d6a6', '#5f9e7a', '#e2763f', '#f0c64a', '#f7f2e8'], z: ['Paprika', 'Zucchini', 'Kartoffeln', 'Feta', 'Rosmarin'] },
+        { id: 'r3', name: 'Pfannkuchen mit Apfelmus', min: 25, fast: true, pal: ['#f8deaa', '#e9b874', '#e8b45a', '#f5dd99', '#c0703c'], z: ['Mehl', 'Milch', 'Eier', 'Apfelmus'] },
+        { id: 'r4', name: 'Chili sin Carne mit Reis', min: 45, fast: false, pal: ['#eb9a7d', '#b8473a', '#a8322a', '#f1d070', '#f7f2e8'], z: ['Kidneybohnen', 'Mais', 'Tomaten in Stücken', 'Paprika', 'Reis'] },
+        { id: 'r5', name: 'Wraps mit Hähnchen', min: 20, fast: true, pal: ['#d3e6b3', '#8fb877', '#f0dca8', '#6da84f', '#e07a5f'], z: ['Tortilla-Wraps', 'Hähnchenbrust', 'Salat', 'Joghurt', 'Gurke'] },
+        { id: 'r6', name: 'Rührkuchen', min: 70, fast: false, cake: true, pal: ['#f3d2cc', '#d98e8a', '#e6b06a', '#f6e2b3', '#b85c4a'], z: ['Mehl', 'Zucker', 'Butter', 'Eier', 'Backpulver'] }
       ],
-      plan: (function () {
-        var p = {}; var ids = ['r2', 'r1', 'r4', 'r3', 'r5', '', 'r1'];
-        for (var i = 0; i < 7; i++) p[day(i)] = ids[i];
-        return p;
-      })(),
-      wishes: [{ id: 'w1', who: 'k1', text: 'Pfannkuchen am Wochenende' }],
+      plan: Object.fromEntries(['r2', 'r1', 'r4', 'r3', 'r5', '', 'r1'].map((r, i) => [day(i), r])),
+      wishes: [{ id: 'w1', who: 'k1', text: 'Pfannkuchen am Wochenende' }, { id: 'w2', who: 'k2', text: 'Mal wieder Wraps' }],
       shopping: [
         { id: 's1', text: 'Milch', done: false, src: '' },
-        { id: 's2', text: 'Bananen', done: false, src: '' },
+        { id: 's2', text: 'Bananen', done: false, src: 'von Lena' },
         { id: 's3', text: 'Brot', done: true, src: '' }
       ],
       groups: [
         {
-          id: 'g1', name: 'HSG Musterstadt C-Jugend', typ: 'Mannschaft', kids: ['k1'], lead: 'Trainer Michael K.',
+          id: 'g1', name: 'HSG Musterstadt C-Jugend', typ: 'Mannschaft', icon: 'ball', gi: 0, kids: ['k1'], admin: false, lead: 'Trainer Michael K.',
+          share: { phone: false, addr: false }, requests: [],
+          families: famList([['Yilmaz', ['Can'], '0170 5550101'], ['Becker', ['Lukas']], ['Schulz', ['Jonas'], '0151 5550199', 'Ahornweg 12'], ['Wagner', ['Finn', 'Paul']], ['Hoffmann', ['Leon'], '0176 5550123']]),
           msgs: [
             { from: 'Trainer Michael K.', role: 'Betreuer', text: 'Training am Mittwoch findet wie gewohnt statt. Bitte Hallenschuhe mitbringen.', when: 'gestern 18:42' },
             { from: 'Familie Yilmaz', role: 'Eltern', text: 'Wer fährt Samstag zum Heimspiel? Wir haben noch einen Platz frei.', when: 'heute 07:15' }
@@ -90,18 +133,29 @@
           kasse: { title: 'Saisonabschlussfahrt, 25 € pro Kind', total: 15, paid: 9, ours: false }
         },
         {
-          id: 'g2', name: 'Klassenpflegschaft 6b', typ: 'Klasse', kids: ['k2'], lead: 'Elternvertretung 6b',
-          msgs: [
-            { from: 'Elternvertretung 6b', role: 'Elternvertretung', text: 'Für das Herbstfest suchen wir noch Kuchen und Hilfe beim Aufbau.', when: 'Montag 20:10' }
-          ],
+          id: 'g2', name: 'Klassenpflegschaft 6b', typ: 'Klasse', icon: 'school', gi: 1, kids: ['k2'], admin: true, lead: 'Sandra Neumann (Elternvertretung)', code: '731 204',
+          share: { phone: true, addr: false },
+          requests: [{ id: 'q1', fam: 'Krämer', kid: 'Emil' }, { id: 'q2', fam: 'Öztürk', kid: 'Elif' }],
+          families: famList([['Hoffmann', ['Emma'], '0172 5550188'], ['Schmidt', ['Noah']], ['Lehmann', ['Sophie'], '0160 5550177', 'Birkenstraße 3'], ['Fischer', ['Marie']], ['Yilmaz', ['Aylin'], '0170 5550101']]),
+          msgs: [{ from: 'Sandra Neumann', role: 'Elternvertretung', text: 'Für das Herbstfest suchen wir noch Kuchen und Hilfe beim Aufbau. Bitte in die Helferliste eintragen.', when: 'Montag 20:10', mine: true }],
           helpers: [
             { id: 'h5', task: 'Kuchen für das Herbstfest', date: day(9), cake: true, by: null },
-            { id: 'h6', task: 'Aufbau Herbstfest', date: day(9), by: null }
+            { id: 'h6', task: 'Aufbau Herbstfest', date: day(9), by: 'Familie Lehmann' },
+            { id: 'h7', task: 'Getränkestand Herbstfest', date: day(9), by: null }
           ],
           kasse: { title: 'Klassenkasse 1. Halbjahr, 15 € pro Kind', total: 28, paid: 22, ours: true }
         }
       ],
-      rsvp: {},
+      joinable: { '482913': { name: 'Förderverein Grundschule am Park', typ: 'Förderverein', icon: 'heart', gi: 2, lead: 'Vorstand Förderverein', families: famList([['Krause', ['Ida']], ['Neumeyer', ['Tom'], '0151 5550111'], ['Arslan', ['Deniz']]]) } },
+      rsvp: { 'e9|k1': 'ja' },
+      connections: [
+        { id: 'f1', fam: 'Yilmaz', status: 'verbunden', via: 'HSG Musterstadt C-Jugend', note: 'Fahrgemeinschaft Training dienstags' },
+        { id: 'f2', fam: 'Becker', status: 'eingehend', via: 'HSG Musterstadt C-Jugend' },
+        { id: 'f3', fam: 'Lehmann', status: 'verbunden', via: 'Klassenpflegschaft 6b', note: '' }
+      ],
+      invites: [
+        { id: 'i1', from: 'Hoffmann', title: 'Emmas 11. Geburtstag', date: day(15), start: '15:00', end: '18:00', kid: 'k2', place: 'Trampolinhalle Musterstadt', answer: null }
+      ],
       contracts: [
         { id: 'c1', name: 'Handyvertrag Ben', cat: 'Mobilfunk', amount: 9.99, per: 'monat', end: day(52), notice: 1, remind: false },
         { id: 'c2', name: 'Streamingdienst', cat: 'Unterhaltung', amount: 13.99, per: 'monat', end: day(18), notice: 0, remind: false },
@@ -113,436 +167,498 @@
     };
   }
 
-  var S;
+  let S;
   function load() {
-    try { var raw = localStorage.getItem(KEY); if (raw) { S = JSON.parse(raw); if (S && S.v === 1) return; } } catch (e) { /* ohne Speicher weiter */ }
+    try { const raw = localStorage.getItem(KEY); if (raw) { const s = JSON.parse(raw); if (s && s.v === 2) { S = s; S.modal = null; return; } } } catch (e) { /* ohne Speicher weiter */ }
     S = seed();
   }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignorieren */ } }
+  function save() { try { const c = Object.assign({}, S, { modal: null }); localStorage.setItem(KEY, JSON.stringify(c)); } catch (e) { /* ignorieren */ } }
 
   // ---------- Rollen und Rechte ----------
-  function member(id) { return S.members.find(function (m) { return m.id === id; }); }
-  function me() { return member(S.current); }
-  function isParent(m) { m = m || me(); return m.role === 'eltern'; }
-  function level(m) { m = m || me(); return isParent(m) ? 9 : m.stufe; }
-  function chip(id) { var m = member(id); return m ? '<span class="chip p' + m.color + '">' + esc(m.name) + '</span>' : ''; }
-  function kids() { return S.members.filter(function (m) { return m.role === 'kind'; }); }
-  function canGroups() { return level() >= 3; }
-  function visibleEvents() {
-    return isParent() ? S.events : S.events.filter(function (e) { return e.who.indexOf(S.current) >= 0; });
-  }
-  function recipe(id) { return S.recipes.find(function (r) { return r.id === id; }); }
-  function myGroups() {
-    return S.groups.filter(function (g) {
-      return isParent() ? true : g.kids.indexOf(S.current) >= 0;
-    });
-  }
+  const member = id => S.members.find(m => m.id === id);
+  const me = () => member(S.current);
+  const isParent = (m = me()) => m.role === 'eltern';
+  const level = (m = me()) => isParent(m) ? 9 : m.stufe;
+  const canGroups = () => level() >= 3;
+  const canFamilies = () => isParent();
+  const canContracts = () => isParent();
+  const parents = () => S.members.filter(m => m.role === 'eltern');
+  const av = (id, cls = '') => { const m = member(id); return m ? `<span class="av ${cls} p${m.color}" title="${esc(m.name)}">${esc(m.name[0])}</span>` : ''; };
+  const avs = (ids, cls = 'sm') => `<span class="avs">${ids.map(i => av(i, cls)).join('')}</span>`;
+  const famAv = (fam, cls = '') => `<span class="av fam ${cls}">${esc(fam[0])}</span>`;
+  const visibleEvents = () => isParent() ? S.events : S.events.filter(e => e.who.includes(S.current));
+  const recipe = id => S.recipes.find(r => r.id === id);
+  const group = id => S.groups.find(g => g.id === id);
+  const myGroups = () => S.groups.filter(g => isParent() || g.kids.includes(S.current));
+  const firstColor = e => member(e.who[0]) ? member(e.who[0]).color : 0;
 
   // ---------- Verknüpfung Kalender und Küche ----------
-  function lateOn(date) {
-    return S.events.filter(function (e) { return e.date === date && e.end && e.end >= '18:30'; });
-  }
+  const lateOn = date => S.events.filter(e => e.date === date && e.end && e.end > '18:30' && e.start < '19:00');
   function mealInfo(date) {
-    var r = recipe(S.plan[date]);
-    var late = lateOn(date);
-    return { r: r, late: late, warn: !!(r && !r.fast && late.length) };
+    const r = recipe(S.plan[date]);
+    const late = lateOn(date);
+    return { r, late, warn: !!(r && !r.fast && late.length) };
   }
-  function lateText(late) {
-    return late.map(function (e) {
-      return e.who.map(function (w) { return member(w).name; }).join(', ') + ' bis ' + e.end + ' (' + e.title + ')';
-    }).join('; ');
+  const lateShort = late => late.map(e => `${e.who.map(w => member(w).name).join(' und ')} ab ${e.end}`).join(', ');
+
+  // ---------- Illustration Essen ----------
+  function foodArt(r, cls = 'food') {
+    if (!r) return `<svg class="${cls}" viewBox="0 0 320 160" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="320" height="160" fill="var(--surface2)"/><ellipse cx="160" cy="82" rx="62" ry="38" fill="none" stroke="var(--surface3)" stroke-width="3" stroke-dasharray="8 8"/><path d="M160 66v32M144 82h32" stroke="var(--muted)" stroke-width="3" stroke-linecap="round" opacity=".5"/></svg>`;
+    const [a, b, f1, f2, f3] = r.pal;
+    const g = `g${r.id}`;
+    const extra = r.cake
+      ? `<path d="M116 92h88v-26a8 8 0 0 0-8-8h-72a8 8 0 0 0-8 8z" fill="${f1}"/><path d="M116 70h88" stroke="${f2}" stroke-width="7"/><path d="M116 66c10 8 18 8 22 0s14-8 22 0 18 8 22 0 14-8 22 0" fill="none" stroke="${f2}" stroke-width="6" stroke-linecap="round"/><circle cx="160" cy="52" r="7" fill="${f3}"/>`
+      : `<circle cx="140" cy="80" r="24" fill="${f1}"/><circle cx="176" cy="76" r="21" fill="${f2}"/><circle cx="158" cy="100" r="16" fill="${f3}"/><circle cx="124" cy="98" r="6" fill="${f2}"/><circle cx="194" cy="96" r="7" fill="${f1}"/><ellipse cx="190" cy="62" rx="10" ry="5" fill="#6aa65a" transform="rotate(-30 190 62)"/><ellipse cx="134" cy="60" rx="8" ry="4" fill="#6aa65a" transform="rotate(25 134 60)"/>`;
+    return `<svg class="${cls}" viewBox="0 0 320 160" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${esc(r.name)}"><defs><linearGradient id="${g}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="320" height="160" fill="url(#${g})"/><circle cx="270" cy="22" r="54" fill="#fff" opacity=".14"/><circle cx="34" cy="150" r="40" fill="#fff" opacity=".1"/><ellipse cx="160" cy="92" rx="90" ry="54" fill="#000" opacity=".08"/><ellipse cx="160" cy="84" rx="88" ry="54" fill="#fffdf9"/><ellipse cx="160" cy="84" rx="66" ry="39" fill="#f4ede3"/>${extra}</svg>`;
   }
 
-  // ---------- Icons ----------
-  var IC = {
-    heute: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
-    kalender: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
-    kueche: '<path d="M6 3v8a3 3 0 0 0 6 0V3M9 3v18M17 3c-2 2-2 6 0 8v10"/>',
-    gruppen: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 20c0-2 1-4 3-4.5 2 .3 3 2.5 3 4.5"/>',
-    mehr: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'
-  };
-  function icon(n) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + IC[n] + '</svg>'; }
+  // ---------- Bausteine ----------
+  const hero = (eyebrow, title, lead, actions = '') => `<div class="hero"><div>${eyebrow ? `<p class="eyebrow">${eyebrow}</p>` : ''}<h1>${title}</h1>${lead ? `<p class="lead">${lead}</p>` : ''}</div>${actions ? `<div class="row wrap">${actions}</div>` : ''}</div>`;
+  const cardH = (icon, title, right = '', tone = '') => `<div class="card-h"><div class="ttl"><span class="ic ${tone}">${ic(icon)}</span><h2>${title}</h2></div>${right}</div>`;
+  const empty = t => `<div class="empty">${t}</div>`;
 
-  // ---------- Ansichten ----------
+  function taskLi(x) {
+    const mine = x.who === S.current || isParent();
+    return `<li class="li ${x.done ? 'done' : ''}"><button class="check ${x.done ? 'on' : ''}" data-a="task" data-id="${x.id}" ${mine ? '' : 'disabled'} aria-label="${x.done ? 'Als offen markieren' : 'Erledigt'}">${x.done ? ic('tick') : ''}</button><div class="grow"><div class="t">${esc(x.title)}</div><div class="xs muted">${relDay(x.due)}</div></div>${av(x.who)}</li>`;
+  }
+
+  function timeline(date) {
+    const ev = visibleEvents().filter(e => e.date === date).sort(byTime);
+    if (!ev.length) return empty('Keine Termine.');
+    const now = nowHM();
+    let shown = false, h = '<ul class="tl">';
+    ev.forEach(e => {
+      if (date === day(0) && !shown && e.start > now) { h += `<li class="tl-now">Jetzt ${now}</li>`; shown = true; }
+      const g = e.group ? group(e.group) : null;
+      h += `<li class="tl-item" data-a="openevent" data-id="${e.id}"><div class="tl-time">${e.start}${e.end ? `<small>${e.end}</small>` : ''}</div><div class="tl-body bl${firstColor(e)}"><div class="t">${esc(e.title)}</div><div class="tl-meta">${avs(e.who)}${g ? `<span class="pill">${esc(g.name)}</span>` : ''}${e.place ? `<span class="xs muted">${esc(e.place)}</span>` : ''}</div></div></li>`;
+    });
+    if (date === day(0) && !shown) h += `<li class="tl-now">Jetzt ${now}</li>`;
+    return h + '</ul>';
+  }
+
+  // ---------- Ansicht: Heute ----------
   function vHeute() {
-    var t = day(0), m = me();
-    var ev = visibleEvents().filter(function (e) { return e.date === t; }).sort(byTime);
-    var tasks = S.tasks.filter(function (x) { return !x.done && x.due <= t && (isParent() || x.who === S.current); });
-    var mi = mealInfo(t);
-    var h = '<h1>Hallo ' + esc(m.name) + '</h1><p class="sub">' + fmtLong(t) + '</p>';
+    const t = day(0), m = me(), hr = new Date().getHours();
+    const greet = hr < 11 ? 'Guten Morgen' : hr < 17 ? 'Hallo' : 'Guten Abend';
+    const evCount = visibleEvents().filter(e => e.date === t).length;
+    const tasks = S.tasks.filter(x => !x.done && x.due <= t && (isParent() || x.who === S.current));
+    const shopOpen = S.shopping.filter(s => !s.done).length;
+    const mi = mealInfo(t);
 
-    h += '<section class="card"><h2>Heute' + (isParent() ? ' in der Familie' : '') + '</h2>';
-    h += ev.length ? '<ul class="list">' + ev.map(evRow).join('') + '</ul>' : '<p class="muted">Keine Termine.</p>';
-    h += '</section>';
+    let h = hero(fmtLong(t), `${greet}, ${esc(m.name)}`, isParent() ? 'Das steht heute bei euch an.' : 'Das steht heute bei dir an.');
+    h += `<div class="stats">
+      <button class="stat" data-a="go" data-id="kalender"><b>${evCount}</b><span>Termine heute</span></button>
+      <button class="stat" data-a="go" data-id="aufgaben"><b>${tasks.length}</b><span>offene Aufgaben</span></button>
+      <button class="stat" data-a="shoplist"><b>${shopOpen}</b><span>auf der Einkaufsliste</span></button></div>`;
 
-    h += '<section class="card"><div class="row between"><h2>Aufgaben heute</h2><button class="btn small ghost" data-a="go" data-id="aufgaben">Alle</button></div>';
-    h += tasks.length ? '<ul class="list">' + tasks.map(taskRow).join('') + '</ul>' : '<p class="muted">Alles erledigt.</p>';
-    h += '</section>';
+    const left = `<section class="card">${cardH('clock', 'Tagesablauf', `<button class="btn sm ghost" data-a="go" data-id="kalender">Woche ${ic('right')}</button>`)}${timeline(t)}</section>
+      <section class="card">${cardH('tasks', 'Aufgaben heute', `<button class="btn sm ghost" data-a="go" data-id="aufgaben">Alle ${ic('right')}</button>`)}${tasks.length ? `<ul class="list">${tasks.map(taskLi).join('')}</ul>` : empty('Alles erledigt. Schön!')}</section>`;
 
-    h += '<section class="card"><h2>Abendessen</h2>';
-    h += mi.r ? '<p><strong>' + esc(mi.r.name) + '</strong> <span class="tag' + (mi.r.fast ? ' fast' : '') + '">' + mi.r.min + ' Min.</span></p>' : '<p class="muted">Noch nichts geplant.</p>';
-    if (mi.late.length) h += '<div class="note ' + (mi.warn ? 'warn' : 'info') + '">' + esc(lateText(mi.late)) + (mi.warn ? '. Ein schnelles Gericht wäre heute besser.' : '. Passt, das Gericht ist schnell gemacht.') + '</div>';
-    if (mi.warn && isParent()) h += '<button class="btn small" data-a="quickmeal" data-id="' + t + '">Schnelles Gericht wählen</button>';
-    h += '</section>';
+    let meal = `<section class="card">${cardH('food', 'Abendessen', '', 'warm')}<div class="meal-hero">${foodArt(mi.r)}<div><div class="strong">${mi.r ? esc(mi.r.name) : 'Noch nichts geplant'}</div>${mi.r ? `<div class="row mt"><span class="pill ${mi.r.fast ? 'green' : ''}">${ic('clock')} ${mi.r.min} Min.</span></div>` : ''}</div></div>`;
+    if (mi.late.length) meal += `<div class="hint ${mi.warn ? 'warm' : 'green'}">${ic(mi.warn ? 'clock' : 'tick')}<div class="grow">${esc(lateShort(mi.late))} zu Hause.${mi.warn ? ' Heute passt ein schnelles Gericht besser.' : ''}</div></div>`;
+    if (mi.warn && isParent()) meal += `<button class="btn soft sm mt" data-a="quickmeal" data-id="${t}">${ic('sparkle')} Schnelles Gericht wählen</button>`;
+    meal += '</section>';
 
+    let right = meal;
     if (isParent()) {
-      var open = 0; S.groups.forEach(function (g) { g.helpers.forEach(function (x) { if (!x.by) open++; }); });
-      var soon = S.contracts.filter(function (c) { var d = diff(t, addMonths(c.end, c.notice)); return d >= 0 && d <= 30; });
-      h += '<section class="card"><h2>Hinweise</h2><ul class="list">';
-      h += '<li><span class="grow">' + open + ' offene Helferaufgaben in euren Gruppen</span><button class="btn small" data-a="go" data-id="gruppen">Ansehen</button></li>';
-      soon.forEach(function (c) {
-        h += '<li><span class="grow">Kündigungsfrist <strong>' + esc(c.name) + '</strong> endet am ' + fmt(addMonths(c.end, c.notice)) + '</span><button class="btn small" data-a="go" data-id="vertraege">Prüfen</button></li>';
-      });
-      h += '</ul></section>';
+      const items = [];
+      S.groups.filter(g => g.admin && g.requests.length).forEach(g => items.push([`<b>${g.requests.length} Beitrittsanfragen</b> für ${esc(g.name)}`, 'userplus', `<button class="btn sm soft" data-a="opengroup" data-id="${g.id}">Prüfen</button>`]));
+      S.invites.filter(i => !i.answer).forEach(i => items.push([`Einladung: <b>${esc(i.title)}</b> für ${esc(member(i.kid).name)}`, 'cake', `<button class="btn sm soft" data-a="go" data-id="familien">Antworten</button>`]));
+      S.connections.filter(c => c.status === 'eingehend').forEach(c => items.push([`<b>Familie ${esc(c.fam)}</b> möchte sich verbinden`, 'link', `<button class="btn sm soft" data-a="go" data-id="familien">Ansehen</button>`]));
+      const open = S.groups.reduce((n, g) => n + g.helpers.filter(x => !x.by).length, 0);
+      if (open) items.push([`${open} offene Helferaufgaben in euren Gruppen`, 'hand', `<button class="btn sm ghost" data-a="go" data-id="gruppen">${ic('right')}</button>`]);
+      S.contracts.forEach(c => { const dl = minusMonths(c.end, c.notice), d = diff(t, dl); if (d >= 0 && d <= 30) items.push([`Kündigungsfrist <b>${esc(c.name)}</b> in ${d} Tagen`, 'file', `<button class="btn sm ghost" data-a="go" data-id="vertraege">${ic('right')}</button>`]); });
+      right += `<section class="card">${cardH('bell', 'Für euch', items.length ? `<span class="badge">${items.length}</span>` : '', 'gold')}${items.length ? `<ul class="list">${items.map(([txt, icn, btn]) => `<li class="li"><span class="muted">${ic(icn)}</span><div class="grow small">${txt}</div>${btn}</li>`).join('')}</ul>` : empty('Nichts Neues.')}</section>`;
     } else {
-      h += '<section class="card"><h2>Essenswunsch</h2><p class="muted small">Dein Wunsch landet bei deinen Eltern im Wochenplan.</p>' + wishForm() + '</section>';
+      right += `<section class="card">${cardH('sparkle', 'Essenswunsch', '', 'gold')}<p class="small muted">Dein Wunsch landet bei deinen Eltern im Wochenplan.</p>${wishForm()}</section>`;
     }
-    return h;
+    return h + `<div class="grid g-dash"><div class="stack">${left}</div><div class="stack">${right}</div></div>`;
   }
 
-  function evRow(e) {
-    var g = e.group ? S.groups.find(function (x) { return x.id === e.group; }) : null;
-    return '<li><span class="time">' + e.start + (e.end ? '–' + e.end : '') + '</span><span class="grow"><span class="t">' + esc(e.title) + '</span><br>' +
-      e.who.map(chip).join('') + (g ? ' <span class="tag">' + esc(g.name) + '</span>' : '') + '</span>' +
-      (isParent() ? '<button class="btn small ghost danger" data-a="delevent" data-id="' + e.id + '" aria-label="Termin löschen">✕</button>' : '') + '</li>';
-  }
-
-  function taskRow(x) {
-    var mine = x.who === S.current || isParent();
-    return '<li class="' + (x.done ? 'done' : '') + '"><button class="check' + (x.done ? ' on' : '') + '" data-a="task" data-id="' + x.id + '"' + (mine ? '' : ' disabled') + ' aria-label="Erledigt">' + (x.done ? '✓' : '') + '</button>' +
-      '<span class="grow"><span class="t">' + esc(x.title) + '</span><br><span class="small muted">' + (x.due === day(0) ? 'heute' : fmt(x.due)) + '</span></span>' + chip(x.who) + '</li>';
-  }
-
+  // ---------- Ansicht: Kalender ----------
   function vKalender() {
-    var h = '<h1>Kalender</h1><p class="sub">' + (isParent() ? 'Alle Termine der Familie, nächste 14 Tage' : 'Deine Termine, nächste 14 Tage') + '</p>';
-    if (isParent()) {
-      h += '<section class="card"><h2>Termin eintragen</h2><form class="inline" data-f="event">' +
-        '<input name="title" placeholder="Was?" required maxlength="80">' +
-        '<input name="date" type="date" value="' + day(0) + '" required>' +
-        '<input name="start" type="time" value="17:00" required><input name="end" type="time" value="18:00">' +
-        '<select name="who">' + S.members.map(function (m) { return '<option value="' + m.id + '">' + esc(m.name) + '</option>'; }).join('') + '<option value="all">Ganze Familie</option></select>' +
-        '<button class="btn primary">Eintragen</button></form></section>';
+    const start = S.wk * 7, first = day(start), last = day(start + 6);
+    const actions = `<div class="seg"><button data-a="wk" data-id="-1" aria-label="Vorherige Woche">${ic('left')}</button><button class="${S.wk === 0 ? 'on' : ''}" data-a="wk" data-id="0">Heute</button><button data-a="wk" data-id="1" aria-label="Nächste Woche">${ic('right')}</button></div>${isParent() ? `<button class="btn primary" data-a="modal" data-id="newevent">${ic('plus')} Termin</button>` : ''}`;
+    let h = hero('Kalender', `${parse(first).getDate()}. ${MON[parse(first).getMonth()]} bis ${parse(last).getDate()}. ${MON[parse(last).getMonth()]}`, isParent() ? 'Alle Termine der Familie' : 'Deine Termine', actions);
+    const ev = visibleEvents();
+    h += '<div class="week">';
+    for (let i = 0; i < 7; i++) {
+      const d = day(start + i), x = parse(d), list = ev.filter(e => e.date === d).sort(byTime);
+      h += `<div class="dcol ${d === day(0) ? 'today' : ''}"><div class="dhead"><b>${x.getDate()}</b><span>${d === day(0) ? 'Heute' : WDL[x.getDay()]}</span></div>`;
+      h += list.length ? list.map(e => `<div class="ev bl${firstColor(e)}" data-a="openevent" data-id="${e.id}"><small>${e.start}${e.end ? '–' + e.end : ''}</small><b>${esc(e.title)}</b>${avs(e.who)}</div>`).join('') : '<div class="xs muted">frei</div>';
+      h += '</div>';
     }
-    var ev = visibleEvents();
-    h += '<section class="card">';
-    for (var i = 0; i < 14; i++) {
-      var d = day(i);
-      var list = ev.filter(function (e) { return e.date === d; }).sort(byTime);
-      if (!list.length && i > 6) continue;
-      h += '<div class="day' + (i === 0 ? ' today' : '') + '">' + (i === 0 ? 'Heute, ' : i === 1 ? 'Morgen, ' : '') + fmt(d) + '</div>';
-      h += list.length ? '<ul class="list">' + list.map(evRow).join('') + '</ul>' : '<p class="muted small">Nichts geplant.</p>';
-    }
-    h += '</section>';
-    h += '<p class="muted small">Im Produkt: Kalenderabo pro Person für Apple, Google, Outlook und Home Assistant.</p>';
+    h += '</div><div class="hint gray mt">' + ic('info') + '<div class="grow">Im Produkt bekommt jede Person ein Kalenderabo für Apple, Google, Outlook oder Home Assistant.</div></div>';
     return h;
   }
 
-  function wishForm() {
-    return '<form class="inline" data-f="wish"><input name="text" placeholder="Was möchtest du gern essen?" required maxlength="60"><button class="btn primary">Wünschen</button></form>';
+  // ---------- Ansicht: Aufgaben ----------
+  function vAufgaben() {
+    let h = hero('Aufgaben', isParent() ? 'Wer macht was' : 'Deine Aufgaben', isParent() ? 'Kinder sehen nur ihre eigenen Aufgaben und haken sie selbst ab.' : 'Hake ab, was du erledigt hast.', isParent() ? `<button class="btn primary" data-a="modal" data-id="newtask">${ic('plus')} Aufgabe</button>` : '');
+    const people = isParent() ? S.members : [me()];
+    h += `<div class="grid ${isParent() ? 'g3' : ''}">`;
+    people.forEach(p => {
+      const list = S.tasks.filter(x => x.who === p.id).sort((a, b) => (a.done - b.done) || a.due.localeCompare(b.due));
+      const open = list.filter(x => !x.done).length;
+      h += `<section class="card"><div class="card-h"><div class="ttl">${av(p.id, 'lg')}<div><h2>${esc(p.name)}</h2><div class="xs muted">${open} offen</div></div></div></div>${list.length ? `<ul class="list">${list.map(taskLi).join('')}</ul>` : empty('Keine Aufgaben.')}</section>`;
+    });
+    return h + '</div>';
   }
+
+  // ---------- Ansicht: Küche ----------
+  const wishForm = () => `<form class="addbar" data-f="wish"><input class="input" name="text" placeholder="Was möchtest du gern essen?" required maxlength="60" aria-label="Essenswunsch"><button class="btn primary">${ic('send')}</button></form>`;
 
   function vKueche() {
-    var h = '<h1>Küche</h1><p class="sub">Wochenplan, Rezepte und Einkaufsliste hängen zusammen.</p>';
-    h += '<div class="tabs" role="tablist">' + [['plan', 'Wochenplan'], ['rezepte', 'Rezepte'], ['einkauf', 'Einkauf']].map(function (t) {
-      return '<button role="tab" class="' + (S.kTab === t[0] ? 'on' : '') + '" data-a="ktab" data-id="' + t[0] + '">' + t[1] + '</button>';
-    }).join('') + '</div>';
-    if (S.kTab === 'plan') h += kPlan();
-    else if (S.kTab === 'rezepte') h += kRezepte();
-    else h += kEinkauf();
+    const actions = S.kTab === 'plan' && isParent() ? `<button class="btn primary" data-a="planshop">${ic('cart')} Zutaten der Woche auf die Liste</button>` : '';
+    let h = hero('Küche', S.kTab === 'plan' ? 'Wochenplan' : S.kTab === 'rezepte' ? 'Rezepte' : 'Einkaufsliste', 'Wochenplan, Rezepte und Einkauf hängen zusammen.', actions);
+    h += `<div class="tabs" role="tablist">${[['plan', 'Wochenplan'], ['rezepte', 'Rezepte'], ['einkauf', 'Einkauf']].map(([k, l]) => `<button role="tab" class="${S.kTab === k ? 'on' : ''}" data-a="ktab" data-id="${k}">${l}</button>`).join('')}</div>`;
+    if (S.kTab === 'plan') h += kPlan(); else if (S.kTab === 'rezepte') h += kRezepte(); else h += kEinkauf();
     return h;
   }
 
   function kPlan() {
-    var h = '<section class="card">';
-    for (var i = 0; i < 7; i++) {
-      var d = day(i), mi = mealInfo(d);
-      h += '<div class="meal"><div><strong>' + fmt(d).split(',')[0] + '</strong><br><span class="small muted">' + fmt(d).split(', ')[1] + '</span></div><div>';
-      if (isParent()) {
-        h += '<select data-c="plan" data-id="' + d + '"><option value="">nicht geplant</option>' + S.recipes.filter(function (r) { return !r.cake; }).map(function (r) {
-          return '<option value="' + r.id + '"' + (S.plan[d] === r.id ? ' selected' : '') + '>' + esc(r.name) + (r.fast ? ' (schnell)' : '') + '</option>';
-        }).join('') + '</select>';
-      } else {
-        h += mi.r ? esc(mi.r.name) : '<span class="muted">nicht geplant</span>';
-      }
-      if (mi.late.length) h += '<div class="note ' + (mi.warn ? 'warn' : 'info') + ' small">' + esc(lateText(mi.late)) + (mi.warn ? '. Schnelles Gericht empfohlen.' : '') + '</div>';
-      if (mi.warn && isParent()) h += '<button class="btn small" data-a="quickmeal" data-id="' + d + '">Schnelles Gericht wählen</button>';
-      h += '</div></div>';
+    let h = '<div class="plan">';
+    for (let i = 0; i < 7; i++) {
+      const d = day(i), mi = mealInfo(d), x = parse(d);
+      h += `<section class="card pday"><div class="row between"><div><div class="strong">${i === 0 ? 'Heute' : i === 1 ? 'Morgen' : WDL[x.getDay()]}</div><div class="xs muted">${x.getDate()}. ${MON[x.getMonth()]}</div></div>${mi.r ? `<span class="pill ${mi.r.fast ? 'green' : ''}">${mi.r.min} Min.</span>` : ''}</div>${foodArt(mi.r)}`;
+      if (isParent()) h += `<select data-c="plan" data-id="${d}" aria-label="Gericht am ${fmt(d)}"><option value="">nicht geplant</option>${S.recipes.filter(r => !r.cake).map(r => `<option value="${r.id}" ${S.plan[d] === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>`;
+      else h += `<div class="strong small">${mi.r ? esc(mi.r.name) : '<span class="muted">nicht geplant</span>'}</div>`;
+      if (mi.late.length) h += `<span class="pill ${mi.warn ? 'warm' : 'green'}">${ic('clock')} ${esc(lateShort(mi.late))}</span>`;
+      if (mi.warn && isParent()) h += `<button class="btn sm soft" data-a="quickmeal" data-id="${d}">${ic('sparkle')} Schnell tauschen</button>`;
+      h += '</section>';
     }
-    h += '</section>';
-    if (isParent()) h += '<button class="btn primary" data-a="planshop">Zutaten der Woche auf die Einkaufsliste</button><p></p>';
-    h += '<section class="card"><h2>Essenswünsche</h2>';
-    h += S.wishes.length ? '<ul class="list">' + S.wishes.map(function (w) {
-      return '<li><span class="grow">' + esc(w.text) + '</span>' + chip(w.who) + (isParent() ? '<button class="btn small ghost" data-a="delwish" data-id="' + w.id + '" aria-label="Wunsch erledigt">✓</button>' : '') + '</li>';
-    }).join('') + '</ul>' : '<p class="muted">Keine Wünsche offen.</p>';
-    h += wishForm() + '</section>';
-    return h;
+    h += `<section class="card pday">${cardH('sparkle', 'Wünsche', '', 'gold')}${S.wishes.length ? `<ul class="list">${S.wishes.map(w => `<li class="li">${av(w.who, 'sm')}<span class="grow small">${esc(w.text)}</span>${isParent() ? `<button class="btn sm ghost" data-a="delwish" data-id="${w.id}" aria-label="Wunsch erledigt">${ic('tick')}</button>` : ''}</li>`).join('')}</ul>` : empty('Keine Wünsche offen.')}${wishForm()}</section>`;
+    return h + '</div>';
   }
 
   function kRezepte() {
-    return S.recipes.map(function (r) {
-      return '<section class="card"><div class="row between"><h2>' + esc(r.name) + '</h2><span class="tag' + (r.fast ? ' fast' : '') + '">' + r.min + ' Min.' + (r.fast ? ', schnell' : '') + '</span></div>' +
-        '<p class="small muted">' + r.z.map(esc).join(' · ') + '</p>' +
-        '<button class="btn small" data-a="recipeshop" data-id="' + r.id + '">Zutaten auf die Einkaufsliste</button></section>';
-    }).join('') + '<p class="muted small">Im Produkt: eigene Rezepte anlegen und Rezepte von Webseiten für den privaten Gebrauch importieren.</p>';
+    return `<div class="recipes">${S.recipes.map(r => `<section class="card rcard">${foodArt(r)}<div class="rb"><div class="row between"><h2>${esc(r.name)}</h2><span class="pill ${r.fast ? 'green' : ''}">${r.min} Min.</span></div><div class="small muted">${r.z.map(esc).join(' · ')}</div><div class="grow"></div><button class="btn sm" data-a="recipeshop" data-id="${r.id}">${ic('cart')} Zutaten auf die Liste</button></div></section>`).join('')}</div><div class="hint gray mt">${ic('info')}<div class="grow">Im Produkt: eigene Rezepte anlegen und Rezepte von Webseiten für den privaten Gebrauch importieren.</div></div>`;
   }
 
   function kEinkauf() {
-    var open = S.shopping.filter(function (s) { return !s.done; }), done = S.shopping.filter(function (s) { return s.done; });
-    function row(s) {
-      return '<li class="' + (s.done ? 'done' : '') + '"><button class="check' + (s.done ? ' on' : '') + '" data-a="shop" data-id="' + s.id + '" aria-label="Erledigt">' + (s.done ? '✓' : '') + '</button><span class="grow"><span class="t">' + esc(s.text) + '</span>' + (s.src ? '<br><span class="small muted">' + esc(s.src) + '</span>' : '') + '</span></li>';
-    }
-    var h = '<section class="card"><h2>Einkaufsliste</h2><form class="inline" data-f="shop"><input name="text" placeholder="Was fehlt?" required maxlength="60"><button class="btn primary">Hinzufügen</button></form>';
-    h += open.length ? '<ul class="list">' + open.map(row).join('') + '</ul>' : '<p class="muted">Liste ist leer.</p>';
-    if (done.length) h += '<h3>Im Wagen</h3><ul class="list">' + done.map(row).join('') + '</ul><button class="btn small ghost" data-a="clearshop">Erledigte entfernen</button>';
-    return h + '</section>';
+    const open = S.shopping.filter(s => !s.done), done = S.shopping.filter(s => s.done);
+    const row = s => `<li class="li ${s.done ? 'done' : ''}"><button class="check ${s.done ? 'on' : ''}" data-a="shop" data-id="${s.id}" aria-label="Erledigt">${s.done ? ic('tick') : ''}</button><div class="grow"><div class="t">${esc(s.text)}</div>${s.src ? `<div class="xs muted">${esc(s.src)}</div>` : ''}</div></li>`;
+    return `<div class="grid g2"><section class="card">${cardH('cart', 'Noch zu kaufen', `<span class="pill">${open.length}</span>`)}<form class="addbar" data-f="shop"><input class="input" name="text" placeholder="Was fehlt?" required maxlength="60" aria-label="Artikel"><button class="btn primary">${ic('plus')}</button></form><ul class="list mt">${open.map(row).join('') || empty('Liste ist leer.')}</ul></section>
+      <section class="card">${cardH('tick', 'Im Wagen', done.length ? `<button class="btn sm ghost" data-a="clearshop">Leeren</button>` : '')}${done.length ? `<ul class="list">${done.map(row).join('')}</ul>` : empty('Noch nichts abgehakt.')}</section></div>`;
   }
 
+  // ---------- Ansicht: Gruppen ----------
   function vGruppen() {
-    var h = '<h1>Gruppen</h1><p class="sub">Mannschaft, Klasse, Förderverein</p>';
-    if (!canGroups()) return h + '<div class="note lock">Gruppen sind für dein Konto nicht freigeschaltet. Termine aus deinen Gruppen siehst du im Kalender.</div>';
-    h += '<div class="note info">Kinderschutz: Keine Privatchats zwischen Betreuern und Kindern. Nachrichten an Kinder sehen auch die Eltern. Telefonnummern werden nicht angezeigt.</div>';
-    myGroups().forEach(function (g) {
-      var ev = S.events.filter(function (e) { return e.group === g.id && e.date >= day(0); }).sort(byTime);
-      h += '<section class="card"><div class="row between"><h2>' + esc(g.name) + '</h2><span class="tag">' + esc(g.typ) + '</span></div>';
-      h += '<p class="small muted">Verwaltet von ' + esc(g.lead) + ' · ' + g.kids.map(chip).join('') + '</p>';
-
-      h += '<h3>Termine</h3><ul class="list">' + (ev.length ? ev.map(function (e) {
-        var whoKids = isParent() ? g.kids : [S.current];
-        return '<li><span class="time">' + fmt(e.date) + '</span><span class="grow">' + esc(e.title) + ' <span class="small muted">' + e.start + '</span>' +
-          whoKids.map(function (k) {
-            var v = S.rsvp[e.id + '|' + k];
-            return '<div class="row small">' + (isParent() ? chip(k) : '') +
-              '<button class="btn small' + (v === 'ja' ? ' primary' : '') + '" data-a="rsvp" data-id="' + e.id + '|' + k + '|ja">Zusage</button>' +
-              '<button class="btn small' + (v === 'nein' ? ' primary' : '') + '" data-a="rsvp" data-id="' + e.id + '|' + k + '|nein">Absage</button></div>';
-          }).join('') + '</span></li>';
-      }).join('') : '<li class="muted">Keine Termine.</li>') + '</ul>';
-
-      h += '<h3>Helferliste</h3><ul class="list">' + g.helpers.map(function (x) {
-        return '<li><span class="grow">' + esc(x.task) + '<br><span class="small muted">' + fmt(x.date) + (x.by ? ' · übernimmt ' + esc(x.by) : '') + '</span></span>' +
-          (x.by ? '<span class="tag">vergeben</span>' : isParent() ? '<button class="btn small" data-a="helper" data-id="' + g.id + '|' + x.id + '">Übernehmen</button>' : '<span class="tag">offen</span>') + '</li>';
-      }).join('') + '</ul>';
-
-      h += '<h3>Nachrichten</h3><div>' + g.msgs.map(function (m) {
-        return '<div class="msg"><div class="from">' + esc(m.from) + ' <span class="muted small">· ' + esc(m.role) + ' · ' + esc(m.when) + '</span></div>' + esc(m.text) + '</div>';
-      }).join('') + '</div>';
-      h += '<form class="inline" data-f="msg" data-id="' + g.id + '"><input name="text" placeholder="Nachricht an die ganze Gruppe" required maxlength="300"><button class="btn primary">Senden</button></form>';
-
-      if (isParent()) {
-        var pct = Math.round(g.kasse.paid / g.kasse.total * 10) * 10;
-        h += '<h3>Kasse</h3><p class="small">' + esc(g.kasse.title) + '</p><div class="bar"><span class="w' + pct + '"></span></div>' +
-          '<div class="row between small"><span class="muted">' + g.kasse.paid + ' von ' + g.kasse.total + ' Familien vermerkt</span>' +
-          '<button class="btn small' + (g.kasse.ours ? ' primary' : '') + '" data-a="kasse" data-id="' + g.id + '">' + (g.kasse.ours ? 'Unser Beitrag: bezahlt' : 'Unser Beitrag: offen') + '</button></div>' +
-          '<p class="small muted">Nur Übersicht. Bezahlt wird außerhalb der App.</p>';
-      }
-      h += '</section>';
+    if (!canGroups()) return hero('Gruppen', 'Nicht freigeschaltet', '') + `<div class="hint gray">${ic('lock')}<div class="grow">Gruppen sind für dein Konto nicht freigeschaltet. Termine aus deinen Gruppen siehst du im Kalender.</div></div>`;
+    const actions = isParent() ? `<button class="btn" data-a="modal" data-id="join">${ic('key')} Mit Code beitreten</button><button class="btn primary" data-a="modal" data-id="creategroup">${ic('plus')} Gruppe gründen</button>` : '';
+    let h = hero('Gruppen', 'Mannschaft, Klasse, Verein', 'Beitritt nur auf Einladung. Kein öffentliches Verzeichnis.', actions);
+    h += `<div class="grid g3">`;
+    myGroups().forEach(g => {
+      const open = g.helpers.filter(x => !x.by).length;
+      h += `<section class="card gcard" data-a="opengroup" data-id="${g.id}"><div class="row"><span class="gicon gi${g.gi}">${ic(g.icon)}</span><div class="grow"><h2>${esc(g.name)}</h2><div class="xs muted">${esc(g.typ)} · ${g.families.length + 1} Familien</div></div></div>
+        <div class="row wrap">${g.pending ? '<span class="pill gold">Wartet auf Bestätigung</span>' : ''}${g.admin ? '<span class="pill green">Du verwaltest</span>' : ''}${g.admin && g.requests.length ? `<span class="pill warm">${g.requests.length} Anfragen</span>` : ''}${open && !g.pending ? `<span class="pill">${open} Helfer gesucht</span>` : ''}</div>
+        <div class="row between"><span class="xs muted">${isParent() ? 'Für ' + g.kids.map(k => esc(member(k).name)).join(', ') : esc(g.lead)}</span>${avs(g.kids)}</div></section>`;
     });
+    h += '</div>';
+    h += `<div class="hint green mt">${ic('shield')}<div class="grow">Kinderschutz: Keine Privatchats zwischen Erwachsenen und Kindern anderer Familien. Nachrichten an Kinder sehen auch die Eltern. Kontaktdaten gibt jede Familie nur freiwillig frei.</div></div>`;
+    return h;
+  }
+
+  function vGruppe() {
+    const g = group(S.gid);
+    if (!g || !(isParent() || g.kids.includes(S.current))) { S.view = 'gruppen'; return vGruppen(); }
+    const tabs = [['info', 'Übersicht'], ['msgs', 'Nachrichten']];
+    if (isParent()) tabs.push(['members', 'Mitglieder'], ['kasse', 'Kasse']);
+    if (!tabs.some(t => t[0] === S.gTab)) S.gTab = 'info';
+    let h = `<button class="btn sm ghost" data-a="go" data-id="gruppen">${ic('left')} Alle Gruppen</button>`;
+    h += `<div class="hero"><div class="row"><span class="gicon gi${g.gi}">${ic(g.icon)}</span><div><p class="eyebrow">${esc(g.typ)}</p><h1>${esc(g.name)}</h1><p class="lead">Verwaltet von ${esc(g.lead)}</p></div></div>${g.admin ? `<div class="row"><button class="btn primary" data-a="modal" data-id="invite">${ic('userplus')} Familien einladen</button></div>` : ''}</div>`;
+    if (g.pending) return h + `<section class="card"><div class="hint gold">${ic('clock')}<div class="grow">Eure Beitrittsanfrage liegt beim Gruppenverwalter. Sobald sie bestätigt ist, seht ihr Termine, Nachrichten und Helferlisten.</div></div><button class="btn mt" data-a="approveme" data-id="${g.id}">Bestätigung simulieren (nur Demo)</button></section>`;
+    h += `<div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" class="${S.gTab === k ? 'on' : ''}" data-a="gtab" data-id="${k}">${l}${k === 'info' && g.admin && g.requests.length ? ` <span class="badge">${g.requests.length}</span>` : ''}</button>`).join('')}</div>`;
+
+    if (S.gTab === 'info') {
+      const ev = S.events.filter(e => e.group === g.id && e.date >= day(0)).sort(byTime);
+      const whoKids = isParent() ? g.kids : [S.current];
+      let left = '';
+      if (g.admin && g.requests.length) {
+        left += `<section class="card">${cardH('userplus', 'Beitrittsanfragen', `<span class="badge">${g.requests.length}</span>`, 'warm')}<ul class="list">${g.requests.map(q => `<li class="li act">${famAv(q.fam)}<div class="grow"><div class="t">Familie ${esc(q.fam)}</div><div class="xs muted">für ${esc(q.kid)} · per Einladungscode</div></div><button class="btn sm ghost" data-a="decline" data-id="${q.id}">Ablehnen</button><button class="btn sm primary" data-a="accept" data-id="${q.id}">Bestätigen</button></li>`).join('')}</ul></section>`;
+      }
+      left += `<section class="card">${cardH('cal', 'Termine')}${ev.length ? `<ul class="list">${ev.map(e => `<li class="li"><div class="grow"><div class="t">${esc(e.title)}</div><div class="xs muted">${relDay(e.date)}, ${e.start} Uhr</div></div><div class="stack">${whoKids.map(k => { const v = S.rsvp[e.id + '|' + k]; return `<div class="row">${isParent() ? av(k, 'sm') : ''}<div class="seg"><button class="yes ${v === 'ja' ? 'on' : ''}" data-a="rsvp" data-id="${e.id}|${k}|ja">Zusage</button><button class="no ${v === 'nein' ? 'on' : ''}" data-a="rsvp" data-id="${e.id}|${k}|nein">Absage</button></div></div>`; }).join('')}</div></li>`).join('')}</ul>` : empty('Keine Termine.')}</section>`;
+      const right = `<section class="card">${cardH('hand', 'Helferliste', '', 'gold')}<ul class="list">${g.helpers.map(x => `<li class="li"><span class="muted">${ic(x.cake ? 'cake' : x.task.includes('Fahr') ? 'car' : 'hand')}</span><div class="grow"><div class="t">${esc(x.task)}</div><div class="xs muted">${relDay(x.date)}${x.by ? ' · ' + esc(x.by) : ''}</div></div>${x.by ? '<span class="pill green">vergeben</span>' : isParent() ? `<button class="btn sm soft" data-a="helper" data-id="${g.id}|${x.id}">Übernehmen</button>` : '<span class="pill">offen</span>'}</li>`).join('')}</ul>${isParent() ? `<div class="hint gray">${ic('info')}<div class="grow">Wer einen Kuchen übernimmt, bekommt die Zutaten automatisch auf die Einkaufsliste.</div></div>` : ''}</section>`;
+      h += `<div class="grid g2"><div class="stack">${left}</div><div class="stack">${right}</div></div>`;
+    } else if (S.gTab === 'msgs') {
+      h += `<section class="card">${cardH('msg', 'Gruppennachrichten')}<div class="hint green">${ic('shield')}<div class="grow">Nur Nachrichten an die ganze Gruppe. Keine Privatchats, keine Telefonnummern.</div></div><div class="mt">${g.msgs.map(m => `<div class="msg ${m.mine ? 'mine' : ''}">${m.mine ? av(S.current) : famAv(m.from.replace('Familie ', '').replace('Trainer ', ''))}<div class="bubble"><div class="from">${esc(m.from)} <span class="muted xs">· ${esc(m.role)} · ${esc(m.when)}</span></div><div class="small">${esc(m.text)}</div></div></div>`).join('')}</div><form class="addbar" data-f="msg" data-id="${g.id}"><input class="input" name="text" placeholder="Nachricht an die ganze Gruppe" required maxlength="300" aria-label="Nachricht"><button class="btn primary">${ic('send')}</button></form></section>`;
+    } else if (S.gTab === 'members') {
+      h += `<div class="grid g2"><section class="card">${cardH('shield', 'Was ihr teilt')}<p class="small muted">Gilt nur für diese Gruppe und ist jederzeit widerrufbar.</p><ul class="list">
+        <li class="li"><span class="muted">${ic('users')}</span><div class="grow"><div class="t">Familienname und Vornamen der Kinder</div><div class="xs muted">Familie ${esc(S.family)} · ${g.kids.map(k => esc(member(k).name)).join(', ')}</div></div><button class="toggle on" disabled aria-label="Immer sichtbar"></button></li>
+        <li class="li"><span class="muted">${ic('phone')}</span><div class="grow"><div class="t">Telefonnummer</div><div class="xs muted">${esc(S.phone)}</div></div><button class="toggle ${g.share.phone ? 'on' : ''}" data-a="share" data-id="${g.id}|phone" aria-pressed="${g.share.phone}" aria-label="Telefonnummer teilen"></button></li>
+        <li class="li"><span class="muted">${ic('pin')}</span><div class="grow"><div class="t">Adresse</div><div class="xs muted">${esc(S.addr)}</div></div><button class="toggle ${g.share.addr ? 'on' : ''}" data-a="share" data-id="${g.id}|addr" aria-pressed="${g.share.addr}" aria-label="Adresse teilen"></button></li></ul></section>
+        <section class="card">${cardH('users', 'Kontaktliste', `<span class="pill">${g.families.length + 1} Familien</span>`)}<ul class="list">
+        <li class="li">${famAv(S.family)}<div class="grow"><div class="t">Familie ${esc(S.family)} <span class="pill green">ihr</span></div><div class="xs muted">${[g.share.phone ? S.phone : '', g.share.addr ? S.addr : ''].filter(Boolean).map(esc).join(' · ') || 'nur Name sichtbar'}</div></div></li>
+        ${g.families.map(f => { const con = S.connections.find(c => c.fam === f.fam); return `<li class="li">${famAv(f.fam)}<div class="grow"><div class="t">Familie ${esc(f.fam)}</div><div class="xs muted">${f.kids.map(esc).join(', ')}${f.phone ? ' · ' + esc(f.phone) : ''}${f.addr ? ' · ' + esc(f.addr) : ''}${!f.phone && !f.addr ? ' · keine Kontaktdaten freigegeben' : ''}</div></div>${con ? `<span class="pill ${con.status === 'verbunden' ? 'green' : 'gold'}">${con.status === 'verbunden' ? 'verbunden' : 'angefragt'}</span>` : `<button class="btn sm" data-a="connect" data-id="${esc(f.fam)}|${esc(g.name)}">${ic('link')} Verbinden</button>`}</li>`; }).join('')}</ul></section></div>`;
+    } else {
+      const pct = Math.round(g.kasse.paid / g.kasse.total * 10) * 10;
+      h += `<section class="card">${cardH('euro', 'Kasse', '', 'gold')}<p class="strong">${esc(g.kasse.title)}</p><div class="bar"><span class="w${pct}"></span></div><div class="row between wrap"><span class="small muted">${g.kasse.paid} von ${g.kasse.total} Familien als bezahlt vermerkt</span><button class="btn sm ${g.kasse.ours ? 'primary' : ''}" data-a="kasse" data-id="${g.id}">${g.kasse.ours ? ic('tick') + ' Unser Beitrag bezahlt' : 'Als bezahlt vermerken'}</button></div><div class="hint gray">${ic('info')}<div class="grow">Nur Übersicht. Gezahlt wird außerhalb der App, es gibt keine Verbindung zu Bankkonten.</div></div></section>`;
+    }
+    return h;
+  }
+
+  // ---------- Ansicht: Familien ----------
+  function vFamilien() {
+    if (!canFamilies()) { S.view = 'heute'; return vHeute(); }
+    let h = hero('Familien', 'Verbindungen und Einladungen', 'Verbindungen entstehen nur, wenn beide Familien zustimmen.', `<button class="btn primary" data-a="modal" data-id="connectpick">${ic('link')} Familie verbinden</button>`);
+    const inc = S.connections.filter(c => c.status === 'eingehend'), con = S.connections.filter(c => c.status === 'verbunden'), out = S.connections.filter(c => c.status === 'angefragt');
+    let left = '';
+    if (inc.length) left += `<section class="card">${cardH('link', 'Anfragen an euch', `<span class="badge">${inc.length}</span>`, 'warm')}<ul class="list">${inc.map(c => `<li class="li act">${famAv(c.fam)}<div class="grow"><div class="t">Familie ${esc(c.fam)}</div><div class="xs muted">kennt ihr aus ${esc(c.via)}</div></div><button class="btn sm ghost" data-a="condecline" data-id="${c.id}">Ablehnen</button><button class="btn sm primary" data-a="conaccept" data-id="${c.id}">Annehmen</button></li>`).join('')}</ul></section>`;
+    left += `<section class="card">${cardH('users', 'Verbundene Familien', `<span class="pill">${con.length}</span>`)}${con.length ? `<ul class="list">${con.map(c => `<li class="li">${famAv(c.fam)}<div class="grow"><div class="t">Familie ${esc(c.fam)}</div><div class="xs muted">${c.note ? esc(c.note) : 'über ' + esc(c.via)}</div></div>${c.note ? `<span class="pill green">${ic('car')} Fahrgemeinschaft</span>` : ''}</li>`).join('')}</ul>` : empty('Noch keine Verbindungen.')}${out.length ? `<h3>Von euch angefragt</h3><ul class="list">${out.map(c => `<li class="li">${famAv(c.fam)}<div class="grow"><div class="t">Familie ${esc(c.fam)}</div><div class="xs muted">wartet auf Zustimmung</div></div><span class="pill gold">angefragt</span></li>`).join('')}</ul>` : ''}</section>`;
+    const right = `<section class="card">${cardH('cake', 'Einladungen', '', 'gold')}${S.invites.length ? `<ul class="list">${S.invites.map(i => `<li class="li" ><div class="grow"><div class="t">${esc(i.title)}</div><div class="xs muted">von Familie ${esc(i.from)} · für ${esc(member(i.kid).name)}<br>${fmtLong(i.date)}, ${i.start} bis ${i.end} Uhr · ${esc(i.place)}</div><div class="seg mt"><button class="yes ${i.answer === 'ja' ? 'on' : ''}" data-a="invite" data-id="${i.id}|ja">Zusagen</button><button class="no ${i.answer === 'nein' ? 'on' : ''}" data-a="invite" data-id="${i.id}|nein">Absagen</button></div></div>${av(i.kid, 'lg')}</li>`).join('')}</ul>` : empty('Keine Einladungen.')}<div class="hint gray">${ic('info')}<div class="grow">Eine Zusage trägt den Termin automatisch in den Kalender des Kindes ein.</div></div></section>
+      <section class="card">${cardH('shield', 'So schützen wir euch')}<ul class="list small"><li class="li">Erwachsene können Kindern anderer Familien nie direkt schreiben.</li><li class="li">Verbinden geht nur mit Familien aus gemeinsamen Gruppen.</li><li class="li">Verbindungen können jederzeit beendet werden.</li></ul></section>`;
+    return h + `<div class="grid g2"><div class="stack">${left}</div><div class="stack">${right}</div></div>`;
+  }
+
+  // ---------- Ansicht: Verträge ----------
+  function vVertraege() {
+    if (!canContracts()) { S.view = 'heute'; return vHeute(); }
+    const t = day(0);
+    const monthly = S.contracts.reduce((n, c) => n + (c.per === 'jahr' ? c.amount / 12 : c.amount), 0);
+    const soon = S.contracts.filter(c => { const d = diff(t, minusMonths(c.end, c.notice)); return d >= 0 && d <= 30; }).length;
+    let h = hero('Verträge und Abos', 'Laufende Kosten im Blick', 'Manuell erfasst, ohne Verbindung zum Bankkonto.', `<button class="btn primary" data-a="modal" data-id="newcontract">${ic('plus')} Vertrag</button>`);
+    h += `<div class="stats"><div class="stat"><b>${eur(monthly)}</b><span>im Monat</span></div><div class="stat"><b>${eur(monthly * 12)}</b><span>im Jahr</span></div><div class="stat"><b>${soon}</b><span>Fristen in 30 Tagen</span></div></div>`;
+    h += `<section class="card"><ul class="list">${S.contracts.slice().sort((a, b) => minusMonths(a.end, a.notice).localeCompare(minusMonths(b.end, b.notice))).map(c => {
+      const dl = minusMonths(c.end, c.notice), d = diff(t, dl);
+      const pill = d < 0 ? '<span class="pill red">Frist verpasst</span>' : d <= 30 ? `<span class="pill warm">noch ${d} Tage</span>` : `<span class="pill">bis ${fmt(dl)}</span>`;
+      return `<li class="li"><span class="card-h"><span class="ic">${ic('file')}</span></span><div class="grow"><div class="t">${esc(c.name)}</div><div class="xs muted">${esc(c.cat)} · ${eur(c.amount)} ${c.per === 'jahr' ? 'im Jahr' : 'im Monat'} · Laufzeit bis ${fmt(c.end)}${d < 0 ? ' · verlängert sich' : ''}</div></div>${pill}${d >= 0 ? `<button class="btn sm ${c.remind ? 'soft' : ''}" data-a="remind" data-id="${c.id}">${c.remind ? ic('tick') + ' Erinnert' : ic('bell') + ' Erinnern'}</button>` : ''}</li>`;
+    }).join('')}</ul></section>`;
+    return h;
+  }
+
+  // ---------- Ansicht: Einstellungen ----------
+  function vEinstellungen() {
+    if (!isParent()) {
+      return hero('Über die App', 'Dein Zugang', '') + `<section class="card"><p>Deine Eltern haben dir diesen Zugang eingerichtet. Du siehst deine Termine und Aufgaben und kannst die Einkaufsliste ergänzen.</p><div class="hint green">${ic('shield')}<div class="grow">Dein Konto braucht keine E-Mail-Adresse und keine Telefonnummer. Dein Standort wird nicht erfasst.</div></div></section>`;
+    }
+    let h = hero('Einstellungen', 'Familie und Datenschutz', 'Rollen, Zugänge und eure Daten.');
+    h += `<div class="grid g2"><section class="card">${cardH('users', 'Familie ' + esc(S.family))}<ul class="list">${S.members.map(m => {
+      if (m.role === 'eltern') return `<li class="li">${av(m.id, 'lg')}<div class="grow"><div class="t">${esc(m.name)}</div><div class="xs muted">Elternteil, volle Rechte</div></div></li>`;
+      const code = S.pair[m.id];
+      return `<li class="li">${av(m.id, 'lg')}<div class="grow"><div class="t">${esc(m.name)} <span class="xs muted">${m.alter} Jahre</span></div><select class="input mt" data-c="stufe" data-id="${m.id}" aria-label="Zugangsstufe für ${esc(m.name)}"><option value="1" ${m.stufe === 1 ? 'selected' : ''}>Stufe 1: Profil ohne Zugang</option><option value="2" ${m.stufe === 2 ? 'selected' : ''}>Stufe 2: eigene Termine, Aufgaben, Liste</option><option value="3" ${m.stufe === 3 ? 'selected' : ''}>Stufe 3: zusätzlich Gruppen</option></select>${code ? `<div class="code">${code}</div><div class="xs muted">Kopplungscode, 10 Minuten gültig. Im Produkt als QR-Code zum Scannen.</div>` : ''}</div>${m.stufe > 1 ? `<button class="btn sm" data-a="pair" data-id="${m.id}">${ic('key')} Gerät koppeln</button>` : ''}</li>`;
+    }).join('')}</ul></section>
+    <div class="stack"><section class="card">${cardH('cal', 'Kalenderabo')}<p class="small muted">Im Produkt bekommt jede Person einen eigenen Abo-Link für Apple, Google, Outlook und Home Assistant. Der Link ist jederzeit widerrufbar.</p><button class="btn sm" disabled>Abo-Link erzeugen (im Prototyp nicht aktiv)</button></section>
+    <section class="card">${cardH('shield', 'Datenschutz', '', 'gold')}<ul class="list small">${['Hosting in Deutschland, keine Übermittlung in Drittländer', 'Keine Werbung, keine Analysewerkzeuge Dritter', 'Kinder brauchen weder E-Mail-Adresse noch Telefonnummer', 'Kein Standort-Tracking', 'Keine Verbindung zu Bankkonten', 'Export und Löschung aller Familiendaten jederzeit'].map(x => `<li class="li"><span class="c3">${ic('tick')}</span>${x}</li>`).join('')}</ul><div class="hint gray">${ic('info')}<div class="grow">Dieser Prototyp speichert die Beispieldaten nur in deinem Browser. Bitte keine echten Daten eingeben.</div></div><button class="btn danger mt" data-a="reset">${ic('trash')} Beispieldaten zurücksetzen</button></section></div></div>`;
     return h;
   }
 
   function vMehr() {
-    var h = '<h1>Mehr</h1><section class="card menu">';
-    h += '<a data-a="go" data-id="aufgaben"><span>Aufgaben</span><span class="muted">›</span></a>';
-    if (isParent()) h += '<a data-a="go" data-id="vertraege"><span>Verträge und Abos</span><span class="muted">›</span></a>';
-    h += '<a data-a="go" data-id="einstellungen"><span>' + (isParent() ? 'Familie und Datenschutz' : 'Über die App') + '</span><span class="muted">›</span></a>';
-    return h + '</section>';
+    const items = [['aufgaben', 'tasks', 'Aufgaben']];
+    if (canFamilies()) items.push(['familien', 'link', 'Familien']);
+    if (canContracts()) items.push(['vertraege', 'file', 'Verträge und Abos']);
+    items.push(['einstellungen', 'shield', isParent() ? 'Familie und Datenschutz' : 'Über die App']);
+    return hero('', 'Mehr', '') + `<section class="card"><ul class="list">${items.map(([v, i, l]) => `<li class="li clickable" data-a="go" data-id="${v}"><span class="card-h"><span class="ic">${ic(i)}</span></span><span class="grow t">${l}</span>${ic('right')}</li>`).join('')}</ul></section>`;
   }
 
-  function back() { return '<button class="btn small ghost" data-a="go" data-id="mehr">‹ Zurück</button>'; }
+  // ---------- Dialoge ----------
+  const sheet = (title, body, sub = '') => `<div class="backdrop" data-a="close-bg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="sheet-h"><div><h2>${title}</h2>${sub ? `<p class="small muted">${sub}</p>` : ''}</div><button class="btn ghost icon-btn" data-a="close" aria-label="Schließen">${ic('x')}</button></div>${body}</div></div>`;
+  const memberOpts = (sel) => S.members.map(m => `<option value="${m.id}" ${m.id === sel ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
 
-  function vAufgaben() {
-    var h = back() + '<h1>Aufgaben</h1><p class="sub">' + (isParent() ? 'Wer macht was' : 'Deine Aufgaben') + '</p>';
-    if (isParent()) {
-      h += '<section class="card"><h2>Aufgabe verteilen</h2><form class="inline" data-f="task"><input name="title" placeholder="Was ist zu tun?" required maxlength="80">' +
-        '<select name="who">' + S.members.map(function (m) { return '<option value="' + m.id + '">' + esc(m.name) + '</option>'; }).join('') + '</select>' +
-        '<input name="due" type="date" value="' + day(0) + '" required><button class="btn primary">Hinzufügen</button></form></section>';
+  const MODALS = {
+    openevent() {
+      const e = S.events.find(x => x.id === S.modal.id); if (!e) return '';
+      const g = e.group ? group(e.group) : null;
+      return sheet(esc(e.title), `<ul class="list"><li class="li"><span class="muted">${ic('clock')}</span><div class="grow">${fmtLong(e.date)}<div class="small muted">${e.start ? e.start + (e.end ? ' bis ' + e.end : '') + ' Uhr' : 'ganztägig'}</div></div></li>${e.place ? `<li class="li"><span class="muted">${ic('pin')}</span><div class="grow">${esc(e.place)}</div></li>` : ''}${e.note ? `<li class="li"><span class="muted">${ic('info')}</span><div class="grow">${esc(e.note)}</div></li>` : ''}<li class="li"><span class="muted">${ic('users')}</span><div class="grow row wrap">${e.who.map(w => `<span class="row">${av(w, 'sm')}<span class="small">${esc(member(w).name)}</span></span>`).join('')}</div></li>${g ? `<li class="li"><span class="muted">${ic(g.icon)}</span><div class="grow">${esc(g.name)}</div></li>` : ''}</ul>${isParent() ? `<div class="row between mt"><button class="btn danger" data-a="delevent" data-id="${e.id}">${ic('trash')} Löschen</button><button class="btn primary" data-a="close">Fertig</button></div>` : ''}`);
+    },
+    newevent() {
+      return sheet('Neuer Termin', `<form data-f="event"><div class="field"><label for="f-t">Was?</label><input id="f-t" name="title" required maxlength="80" placeholder="z. B. Elterngespräch"></div><div class="fgrid"><div class="field"><label for="f-d">Datum</label><input id="f-d" name="date" type="date" value="${day(0)}" required></div><div class="field"><label for="f-p">Ort</label><input id="f-p" name="place" maxlength="60"></div><div class="field"><label for="f-s">Beginn</label><input id="f-s" name="start" type="time" value="17:00" required></div><div class="field"><label for="f-e">Ende</label><input id="f-e" name="end" type="time" value="18:00"></div></div><div class="field"><label for="f-w">Für wen?</label><select id="f-w" name="who">${memberOpts()}<option value="all">Ganze Familie</option></select></div><button class="btn primary block">Eintragen</button></form>`);
+    },
+    newtask() {
+      return sheet('Aufgabe verteilen', `<form data-f="task"><div class="field"><label for="f-t">Was ist zu tun?</label><input id="f-t" name="title" required maxlength="80"></div><div class="fgrid"><div class="field"><label for="f-w">Wer?</label><select id="f-w" name="who">${memberOpts('k1')}</select></div><div class="field"><label for="f-d">Bis wann?</label><input id="f-d" name="due" type="date" value="${day(0)}" required></div></div><button class="btn primary block">Hinzufügen</button></form>`);
+    },
+    newcontract() {
+      return sheet('Vertrag erfassen', `<form data-f="contract"><div class="field"><label for="f-n">Name</label><input id="f-n" name="name" required maxlength="60" placeholder="z. B. Fitnessstudio"></div><div class="fgrid"><div class="field"><label for="f-c">Kategorie</label><input id="f-c" name="cat" maxlength="30" placeholder="Sonstiges"></div><div class="field"><label for="f-a">Betrag in €</label><input id="f-a" name="amount" type="number" step="0.01" min="0" required></div><div class="field"><label for="f-p">Zahlweise</label><select id="f-p" name="per"><option value="monat">pro Monat</option><option value="jahr">pro Jahr</option></select></div><div class="field"><label for="f-e">Laufzeit bis</label><input id="f-e" name="end" type="date" value="${day(90)}" required></div></div><div class="field"><label for="f-k">Kündigungsfrist</label><select id="f-k" name="notice"><option value="0">monatlich kündbar</option><option value="1">1 Monat</option><option value="2">2 Monate</option><option value="3" selected>3 Monate</option></select></div><button class="btn primary block">Speichern</button></form>`);
+    },
+    join() {
+      const st = S.modal.step || 1, steps = `<div class="steps">${[1, 2, 3].map(i => `<span class="${i <= st ? 'on' : ''}"></span>`).join('')}</div>`;
+      if (st === 1) return sheet('Gruppe beitreten', steps + `<form data-f="joincode"><div class="field"><label for="f-code">Einladungscode</label><input id="f-code" class="code-in" name="code" inputmode="numeric" autocomplete="off" maxlength="7" placeholder="000 000" required></div>${S.modal.err ? `<div class="hint warm">${ic('info')}<div class="grow">${S.modal.err}</div></div>` : ''}<div class="hint gray">${ic('info')}<div class="grow">Den Code bekommt ihr vom Gruppenverwalter, etwa auf dem Elternabend oder per Elternbrief. Demo-Code: <b>482 913</b></div></div><button class="btn primary block mt">Weiter</button></form>`, 'Gruppen sind nicht öffentlich auffindbar.');
+      const j = S.joinable[S.modal.code];
+      if (st === 2) return sheet('Gruppe beitreten', steps + `<div class="row"><span class="gicon gi${j.gi}">${ic(j.icon)}</span><div><div class="strong">${esc(j.name)}</div><div class="xs muted">${esc(j.typ)} · verwaltet von ${esc(j.lead)}</div></div></div><form data-f="joinconfirm" class="mt"><div class="field"><span class="lbl">Welches Kind gehört zur Gruppe?</span>${S.members.filter(m => m.role === 'kind').map(m => `<label class="row li"><input type="checkbox" name="kid" value="${m.id}" ${m.id === 'k3' ? 'checked' : ''}> ${av(m.id, 'sm')} ${esc(m.name)}</label>`).join('')}</div><div class="hint green">${ic('shield')}<div class="grow">Die Gruppe sieht nur euren Familiennamen und den Vornamen des Kindes. Telefonnummer und Adresse könnt ihr später freiwillig freigeben.</div></div><label class="row small mt"><input type="checkbox" name="ok" required> Ich habe die Datenschutzhinweise der Gruppe gelesen.</label><button class="btn primary block mt">Beitritt anfragen</button></form>`);
+      return sheet('Anfrage gesendet', steps + `<div class="hint gold">${ic('clock')}<div class="grow">Der Gruppenverwalter muss eure Anfrage bestätigen. Bis dahin seht ihr noch keine Inhalte der Gruppe.</div></div><button class="btn primary block mt" data-a="close">Verstanden</button>`);
+    },
+    creategroup() {
+      if (S.modal.step === 2) {
+        const g = group(S.modal.gid);
+        return sheet('Gruppe angelegt', `<p class="small">Teilt diesen Code mit den Familien. Jede Anfrage bestätigt ihr selbst.</p><div class="code">${g.code}</div><div class="hint gray">${ic('info')}<div class="grow">Im Produkt zusätzlich als QR-Code und Link. Codes lassen sich jederzeit widerrufen und neu erzeugen.</div></div><div class="row mt"><button class="btn" data-a="copyinvite" data-id="${g.id}">Einladungstext kopieren</button><button class="btn primary grow" data-a="opengroup" data-id="${g.id}">Zur Gruppe</button></div>`);
+      }
+      return sheet('Gruppe gründen', `<form data-f="creategroup"><div class="field"><label for="f-n">Name der Gruppe</label><input id="f-n" name="name" required maxlength="60" placeholder="z. B. Kita Sonnenblume, Igelgruppe"></div><div class="fgrid"><div class="field"><label for="f-t">Art</label><select id="f-t" name="typ"><option>Kita-Gruppe</option><option>Klasse</option><option>Mannschaft</option><option>Förderverein</option><option>Sonstige</option></select></div><div class="field"><label for="f-k">Kind</label><select id="f-k" name="kid">${S.members.filter(m => m.role === 'kind').map(m => `<option value="${m.id}" ${m.id === 'k3' ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></div></div><div class="hint gray">${ic('shield')}<div class="grow">Als Gruppenverwalter seid ihr für die Daten der Gruppe verantwortlich. Die Haushaltszentrale verarbeitet sie in eurem Auftrag.</div></div><label class="row small mt"><input type="checkbox" name="av" required> Ich übernehme die Verwaltung und schließe den Vertrag zur Auftragsverarbeitung ab.</label><button class="btn primary block mt">Gruppe anlegen</button></form>`);
+    },
+    invite() {
+      const g = group(S.gid);
+      return sheet('Familien einladen', `<p class="small">Teilt diesen Code oder den Link mit den Familien der Gruppe <b>${esc(g.name)}</b>.</p><div class="code">${g.code || '000 000'}</div><div class="row"><button class="btn" data-a="newcode" data-id="${g.id}">Neuen Code erzeugen</button><button class="btn primary grow" data-a="copyinvite" data-id="${g.id}">Einladungstext kopieren</button></div><div class="hint gray">${ic('info')}<div class="grow">Ein neuer Code macht den alten sofort ungültig. Beitritte bestätigt ihr einzeln.</div></div>`);
+    },
+    connectpick() {
+      const known = [];
+      S.groups.filter(g => !g.pending).forEach(g => g.families.forEach(f => { if (!S.connections.some(c => c.fam === f.fam) && !known.some(k => k.fam === f.fam)) known.push({ fam: f.fam, via: g.name, kids: f.kids }); }));
+      return sheet('Familie verbinden', `<p class="small muted">Verbinden könnt ihr euch nur mit Familien aus gemeinsamen Gruppen. Die andere Familie muss zustimmen.</p><ul class="list">${known.map(k => `<li class="li">${famAv(k.fam)}<div class="grow"><div class="t">Familie ${esc(k.fam)}</div><div class="xs muted">${k.kids.map(esc).join(', ')} · ${esc(k.via)}</div></div><button class="btn sm soft" data-a="connect" data-id="${esc(k.fam)}|${esc(k.via)}">Anfragen</button></li>`).join('') || empty('Ihr seid schon mit allen verbunden.')}</ul>`);
     }
-    var people = isParent() ? S.members : [me()];
-    people.forEach(function (p) {
-      var list = S.tasks.filter(function (x) { return x.who === p.id; }).sort(function (a, b) { return (a.done - b.done) || a.due.localeCompare(b.due); });
-      if (!list.length) return;
-      h += '<section class="card"><h2>' + chip(p.id) + '</h2><ul class="list">' + list.map(taskRow).join('') + '</ul></section>';
-    });
-    return h;
+  };
+
+  // ---------- Rendern ----------
+  const VIEWS = { heute: vHeute, kalender: vKalender, aufgaben: vAufgaben, kueche: vKueche, gruppen: vGruppen, gruppe: vGruppe, familien: vFamilien, vertraege: vVertraege, einstellungen: vEinstellungen, mehr: vMehr };
+
+  function navItems() {
+    const req = S.groups.reduce((n, g) => n + (g.admin ? g.requests.length : 0), 0);
+    const fam = S.connections.filter(c => c.status === 'eingehend').length + S.invites.filter(i => !i.answer).length;
+    const items = [['heute', 'home', 'Heute'], ['kalender', 'cal', 'Kalender'], ['aufgaben', 'tasks', 'Aufgaben'], ['kueche', 'food', 'Küche']];
+    if (canGroups()) items.push(['gruppen', 'users', 'Gruppen', isParent() ? req : 0]);
+    if (canFamilies()) items.push(['familien', 'link', 'Familien', fam]);
+    if (canContracts()) items.push(['vertraege', 'file', 'Verträge']);
+    items.push(['einstellungen', 'shield', isParent() ? 'Einstellungen' : 'Über die App']);
+    return items;
   }
 
-  function vVertraege() {
-    if (!isParent()) return back() + '<div class="note lock">Nur für Eltern sichtbar.</div>';
-    var t = day(0), monthly = 0;
-    S.contracts.forEach(function (c) { monthly += c.per === 'jahr' ? c.amount / 12 : c.amount; });
-    var h = back() + '<h1>Verträge und Abos</h1><p class="sub">Manuell erfasst. Keine Verbindung zum Bankkonto.</p>';
-    h += '<section class="card"><div class="small muted">Fixkosten im Monat</div><div class="sum">' + eur(monthly) + '</div><div class="small muted">' + eur(monthly * 12) + ' im Jahr</div></section>';
-    h += '<section class="card"><ul class="list">' + S.contracts.slice().sort(function (a, b) { return addMonths(a.end, a.notice).localeCompare(addMonths(b.end, b.notice)); }).map(function (c) {
-      var dl = addMonths(c.end, c.notice), d = diff(t, dl);
-      var cls = d < 0 ? 'over' : d <= 30 ? 'soon' : '';
-      var txt = d < 0 ? 'Frist verpasst, Vertrag verlängert sich' : 'Kündigen bis ' + fmt(dl) + ' (' + (d === 0 ? 'heute' : 'in ' + d + ' Tagen') + ')';
-      return '<li><span class="grow"><strong>' + esc(c.name) + '</strong> <span class="tag">' + esc(c.cat) + '</span><br>' +
-        '<span class="small">' + eur(c.amount) + (c.per === 'jahr' ? ' im Jahr' : ' im Monat') + ' · Laufzeit bis ' + fmt(c.end) + '</span><br>' +
-        '<span class="small deadline ' + cls + '">' + txt + '</span></span>' +
-        (d >= 0 ? '<button class="btn small' + (c.remind ? ' primary' : '') + '" data-a="remind" data-id="' + c.id + '">' + (c.remind ? 'Im Kalender' : 'Erinnern') + '</button>' : '') + '</li>';
-    }).join('') + '</ul></section>';
-    h += '<section class="card"><h2>Vertrag erfassen</h2><form class="inline" data-f="contract">' +
-      '<input name="name" placeholder="Name" required maxlength="60"><input name="cat" placeholder="Kategorie" maxlength="30">' +
-      '<input name="amount" type="number" step="0.01" min="0" placeholder="Betrag €" required>' +
-      '<select name="per"><option value="monat">pro Monat</option><option value="jahr">pro Jahr</option></select>' +
-      '<label class="small muted">Laufzeit bis <input name="end" type="date" value="' + day(90) + '" required></label>' +
-      '<select name="notice"><option value="0">monatlich kündbar</option><option value="1">1 Monat Frist</option><option value="2">2 Monate Frist</option><option value="3" selected>3 Monate Frist</option></select>' +
-      '<button class="btn primary">Speichern</button></form></section>';
-    return h;
+  function whoBar() {
+    return S.members.filter(m => m.role === 'eltern' || m.stufe >= 2).map(m => `<button class="who-btn ${m.id === S.current ? 'on' : ''}" data-a="who" data-id="${m.id}" title="${esc(m.name)}${m.role === 'eltern' ? ' (Elternteil)' : ' (Kind, Stufe ' + m.stufe + ')'}" aria-label="Ansicht als ${esc(m.name)}" aria-pressed="${m.id === S.current}">${av(m.id)}</button>`).join('');
   }
-
-  function vEinstellungen() {
-    var h = back();
-    if (!isParent()) {
-      return h + '<h1>Über die App</h1><section class="card"><p>Deine Eltern haben dir diesen Zugang eingerichtet. Du siehst deine Termine und Aufgaben und kannst die Einkaufsliste ergänzen.</p><p class="small muted">Dein Konto braucht keine E-Mail-Adresse und keine Telefonnummer. Dein Standort wird nicht erfasst.</p></section>';
-    }
-    h += '<h1>Familie und Datenschutz</h1><p class="sub">Rollen, Zugänge und Daten</p>';
-    h += '<section class="card"><h2>Familienmitglieder</h2><ul class="list">' + S.members.map(function (m) {
-      if (m.role === 'eltern') return '<li><span class="grow">' + chip(m.id) + ' <span class="small muted">Elternteil, volle Rechte</span></span></li>';
-      var code = S.pair[m.id];
-      return '<li><span class="grow">' + chip(m.id) + ' <span class="small muted">' + m.alter + ' Jahre</span>' +
-        '<br><select data-c="stufe" data-id="' + m.id + '" aria-label="Zugangsstufe für ' + esc(m.name) + '">' +
-        '<option value="1"' + (m.stufe === 1 ? ' selected' : '') + '>Stufe 1: Profil ohne Zugang</option>' +
-        '<option value="2"' + (m.stufe === 2 ? ' selected' : '') + '>Stufe 2: eingeschränkter Zugang</option>' +
-        '<option value="3"' + (m.stufe === 3 ? ' selected' : '') + '>Stufe 3: erweiterter Zugang mit Gruppen</option></select>' +
-        (code ? '<div class="code">' + code + '</div><div class="small muted">Kopplungscode, 10 Minuten gültig. Im Produkt als QR-Code.</div>' : '') +
-        '</span>' + (m.stufe > 1 ? '<button class="btn small" data-a="pair" data-id="' + m.id + '">Gerät koppeln</button>' : '') + '</li>';
-    }).join('') + '</ul></section>';
-    h += '<section class="card"><h2>Kalenderabo</h2><p class="small">Im Produkt erhält jede Person einen eigenen Abo-Link im ICS-Format für Apple, Google, Outlook und Home Assistant. Der Link ist jederzeit widerrufbar.</p><button class="btn small" disabled>Abo-Link erzeugen (im Prototyp nicht aktiv)</button></section>';
-    h += '<section class="card"><h2>Datenschutz</h2><ul class="list small">' +
-      '<li>Hosting in Deutschland, keine Übermittlung in Drittländer</li>' +
-      '<li>Keine Werbung, keine Analysewerkzeuge Dritter</li>' +
-      '<li>Kinder brauchen weder E-Mail-Adresse noch Telefonnummer</li>' +
-      '<li>Kein Standort-Tracking</li>' +
-      '<li>Keine Verbindung zu Bankkonten, keine Zahlungsabwicklung</li>' +
-      '<li>Export und Löschung aller Familiendaten jederzeit</li></ul>' +
-      '<div class="note lock">Dieser Prototyp speichert die Beispieldaten nur in deinem Browser. Bitte keine echten Daten eingeben.</div>' +
-      '<button class="btn danger" data-a="reset">Beispieldaten zurücksetzen</button></section>';
-    return h;
-  }
-
-  var VIEWS = { heute: vHeute, kalender: vKalender, kueche: vKueche, gruppen: vGruppen, mehr: vMehr, aufgaben: vAufgaben, vertraege: vVertraege, einstellungen: vEinstellungen };
-  var NAVOF = { aufgaben: 'mehr', vertraege: 'mehr', einstellungen: 'mehr' };
 
   function render() {
-    var sel = document.getElementById('who');
-    sel.innerHTML = S.members.filter(function (m) { return m.role === 'eltern' || m.stufe >= 2; }).map(function (m) {
-      return '<option value="' + m.id + '"' + (m.id === S.current ? ' selected' : '') + '>' + esc(m.name) + (m.role === 'eltern' ? ' (Elternteil)' : ' (Kind, Stufe ' + m.stufe + ')') + '</option>';
-    }).join('');
-    if (S.view === 'gruppen' && !canGroups()) S.view = 'heute';
-    var navs = [['heute', 'Heute'], ['kalender', 'Kalender'], ['kueche', 'Küche']];
-    if (canGroups()) navs.push(['gruppen', 'Gruppen']);
-    navs.push(['mehr', 'Mehr']);
-    var active = NAVOF[S.view] || S.view;
-    document.getElementById('nav').innerHTML = navs.map(function (n) {
-      return '<button class="' + (active === n[0] ? 'on' : '') + '" data-a="go" data-id="' + n[0] + '"' + (active === n[0] ? ' aria-current="page"' : '') + '>' + icon(n[0]) + n[1] + '</button>';
-    }).join('');
-    document.getElementById('main').innerHTML = (VIEWS[S.view] || vHeute)();
+    const html = (VIEWS[S.view] || vHeute)();
+    const active = S.view === 'gruppe' ? 'gruppen' : S.view;
+    document.getElementById('sidenav').innerHTML = navItems().map(([v, i, l, b]) => `<button class="${active === v ? 'on' : ''}" data-a="go" data-id="${v}" ${active === v ? 'aria-current="page"' : ''}>${ic(i)}<span>${l}</span>${b ? `<span class="badge">${b}</span>` : ''}</button>`).join('');
+    const bItems = [['heute', 'home', 'Heute'], ['kalender', 'cal', 'Kalender'], ['kueche', 'food', 'Küche']];
+    if (canGroups()) bItems.push(['gruppen', 'users', 'Gruppen']);
+    bItems.push(['mehr', 'more', 'Mehr']);
+    const bActive = ['aufgaben', 'familien', 'vertraege', 'einstellungen'].includes(S.view) ? 'mehr' : active;
+    document.getElementById('bnav').innerHTML = bItems.map(([v, i, l]) => `<button class="${bActive === v ? 'on' : ''}" data-a="go" data-id="${v}">${ic(i)}${l}</button>`).join('');
+    document.getElementById('sidewho').innerHTML = whoBar();
+    document.getElementById('topwho').innerHTML = whoBar();
+    document.getElementById('main').innerHTML = html;
+    document.getElementById('modal').innerHTML = S.modal && MODALS[S.modal.t] ? MODALS[S.modal.t]() : '';
     save();
   }
 
-  var toastT;
+  let toastT;
   function toast(msg) {
-    var t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
-    clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove('show'); }, 2400);
+    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600);
   }
   function addShop(items, src) {
-    var n = 0;
-    items.forEach(function (z) {
-      if (!S.shopping.some(function (s) { return !s.done && s.text.toLowerCase() === z.toLowerCase(); })) { S.shopping.push({ id: uid(), text: z, done: false, src: src }); n++; }
-    });
+    let n = 0;
+    items.forEach(z => { if (!S.shopping.some(s => !s.done && s.text.toLowerCase() === z.toLowerCase())) { S.shopping.push({ id: uid(), text: z, done: false, src }); n++; } });
     return n;
   }
+  const newCode = () => String(Math.floor(100000 + Math.random() * 900000)).replace(/(\d{3})(\d{3})/, '$1 $2');
 
   // ---------- Aktionen ----------
-  var A = {
-    go: function (id) { S.view = id; window.scrollTo(0, 0); },
-    ktab: function (id) { S.kTab = id; },
-    task: function (id) { var x = S.tasks.find(function (t) { return t.id === id; }); if (x) { x.done = !x.done; if (x.done) toast('Erledigt: ' + x.title); } },
-    shop: function (id) { var s = S.shopping.find(function (x) { return x.id === id; }); if (s) s.done = !s.done; },
-    clearshop: function () { S.shopping = S.shopping.filter(function (s) { return !s.done; }); },
-    delevent: function (id) { S.events = S.events.filter(function (e) { return e.id !== id; }); toast('Termin gelöscht'); },
-    delwish: function (id) { S.wishes = S.wishes.filter(function (w) { return w.id !== id; }); },
-    quickmeal: function (d) {
-      var fast = S.recipes.filter(function (r) { return r.fast; });
-      var used = Object.keys(S.plan).map(function (k) { return S.plan[k]; });
-      var pick = fast.find(function (r) { return used.indexOf(r.id) < 0; }) || fast[0];
-      S.plan[d] = pick.id; toast(fmt(d) + ': ' + pick.name);
+  const A = {
+    go(id) { S.view = id; S.modal = null; window.scrollTo(0, 0); },
+    who(id) { S.current = id; if (!VIEWS[S.view] || S.view === 'gruppe') S.view = 'heute'; toast('Ansicht: ' + me().name); },
+    modal(id) { S.modal = { t: id }; },
+    close() { S.modal = null; },
+    'close-bg'(id, el, ev) { if (ev.target === el) S.modal = null; else return false; },
+    openevent(id) { S.modal = { t: 'openevent', id }; },
+    opengroup(id) { S.gid = id; S.gTab = 'info'; S.view = 'gruppe'; S.modal = null; window.scrollTo(0, 0); },
+    gtab(id) { S.gTab = id; },
+    ktab(id) { S.kTab = id; },
+    wk(id) { S.wk = id === '0' ? 0 : Math.max(-4, Math.min(8, S.wk + Number(id))); },
+    shoplist() { S.view = 'kueche'; S.kTab = 'einkauf'; },
+    task(id) { const x = S.tasks.find(t => t.id === id); if (x) { x.done = !x.done; if (x.done) toast('Erledigt: ' + x.title); } },
+    shop(id) { const s = S.shopping.find(x => x.id === id); if (s) s.done = !s.done; },
+    clearshop() { S.shopping = S.shopping.filter(s => !s.done); },
+    delevent(id) { S.events = S.events.filter(e => e.id !== id); S.modal = null; toast('Termin gelöscht'); },
+    delwish(id) { S.wishes = S.wishes.filter(w => w.id !== id); },
+    quickmeal(d) {
+      const fast = S.recipes.filter(r => r.fast), used = Object.values(S.plan);
+      const pick = fast.find(r => !used.includes(r.id)) || fast[0];
+      S.plan[d] = pick.id; toast(relDay(d) + ': ' + pick.name);
     },
-    planshop: function () {
-      var n = 0;
-      for (var i = 0; i < 7; i++) { var r = recipe(S.plan[day(i)]); if (r) n += addShop(r.z, 'Wochenplan: ' + r.name); }
-      toast(n + ' Zutaten auf die Einkaufsliste gesetzt');
-    },
-    recipeshop: function (id) { var r = recipe(id); var n = addShop(r.z, 'Rezept: ' + r.name); toast(n ? n + ' Zutaten hinzugefügt' : 'Steht schon alles auf der Liste'); },
-    rsvp: function (id) {
-      var p = id.split('|'), k = p[0] + '|' + p[1];
-      S.rsvp[k] = S.rsvp[k] === p[2] ? undefined : p[2];
-      if (S.rsvp[k]) toast((p[2] === 'ja' ? 'Zusage' : 'Absage') + ' für ' + member(p[1]).name + ' gesendet');
-    },
-    helper: function (id) {
-      var p = id.split('|'), g = S.groups.find(function (x) { return x.id === p[0]; }), x = g.helpers.find(function (y) { return y.id === p[1]; });
-      x.by = 'Familie ' + me().name;
+    planshop() { let n = 0; for (let i = 0; i < 7; i++) { const r = recipe(S.plan[day(i)]); if (r) n += addShop(r.z, 'Wochenplan: ' + r.name); } toast(n + ' Zutaten auf die Einkaufsliste gesetzt'); },
+    recipeshop(id) { const r = recipe(id), n = addShop(r.z, 'Rezept: ' + r.name); toast(n ? n + ' Zutaten hinzugefügt' : 'Steht schon alles auf der Liste'); },
+    rsvp(id) { const [e, k, v] = id.split('|'), key = e + '|' + k; S.rsvp[key] = S.rsvp[key] === v ? undefined : v; if (S.rsvp[key]) toast((v === 'ja' ? 'Zusage' : 'Absage') + ' für ' + member(k).name + ' gesendet'); },
+    helper(id) {
+      const [gid, hid] = id.split('|'), g = group(gid), x = g.helpers.find(y => y.id === hid);
+      x.by = 'Familie ' + S.family + ' (' + me().name + ')';
       S.events.push({ id: uid(), date: x.date, start: '', end: '', title: x.task, who: [S.current], group: g.id });
-      var msg = 'Übernommen und im Kalender eingetragen';
-      if (x.cake) { var cake = S.recipes.find(function (r) { return r.cake; }); var n = addShop(cake.z, 'Helferliste: ' + x.task); msg += ', ' + n + ' Zutaten auf der Einkaufsliste'; }
+      let msg = 'Übernommen und im Kalender eingetragen';
+      if (x.cake) { const cake = S.recipes.find(r => r.cake), n = addShop(cake.z, 'Helferliste: ' + x.task); msg += ', ' + n + ' Zutaten auf der Liste'; }
       toast(msg);
     },
-    kasse: function (id) { var g = S.groups.find(function (x) { return x.id === id; }); g.kasse.ours = !g.kasse.ours; g.kasse.paid += g.kasse.ours ? 1 : -1; },
-    remind: function (id) {
-      var c = S.contracts.find(function (x) { return x.id === id; });
-      if (c.remind) return;
+    kasse(id) { const g = group(id); g.kasse.ours = !g.kasse.ours; g.kasse.paid += g.kasse.ours ? 1 : -1; },
+    share(id) { const [gid, k] = id.split('|'), g = group(gid); g.share[k] = !g.share[k]; toast(g.share[k] ? 'Für diese Gruppe freigegeben' : 'Freigabe zurückgezogen'); },
+    accept(id) { const g = group(S.gid), q = g.requests.find(r => r.id === id); g.requests = g.requests.filter(r => r.id !== id); g.families.push({ fam: q.fam, kids: [q.kid], phone: '', addr: '' }); toast('Familie ' + q.fam + ' ist jetzt in der Gruppe'); },
+    decline(id) { const g = group(S.gid); g.requests = g.requests.filter(r => r.id !== id); toast('Anfrage abgelehnt'); },
+    approveme(id) { const g = group(id); g.pending = false; toast('Beitritt bestätigt'); },
+    newcode(id) { group(id).code = newCode(); toast('Neuer Code erzeugt, der alte ist ungültig'); },
+    copyinvite(id) {
+      const g = group(id), txt = `Hallo zusammen, wir organisieren die Gruppe "${g.name}" ab sofort in der Haushaltszentrale. Beitreten mit dem Code ${g.code}. Eure Telefonnummern bleiben privat, solange ihr sie nicht selbst freigebt.`;
+      try { navigator.clipboard.writeText(txt).then(() => toast('Einladungstext kopiert'), () => toast('Kopieren nicht möglich')); } catch (e) { toast('Kopieren nicht möglich'); }
+      return false;
+    },
+    connect(id) { const [fam, via] = id.split('|'); if (!S.connections.some(c => c.fam === fam)) S.connections.push({ id: uid(), fam, via, status: 'angefragt', note: '' }); toast('Anfrage an Familie ' + fam + ' gesendet'); },
+    conaccept(id) { const c = S.connections.find(x => x.id === id); c.status = 'verbunden'; toast('Mit Familie ' + c.fam + ' verbunden'); },
+    condecline(id) { S.connections = S.connections.filter(x => x.id !== id); toast('Anfrage abgelehnt'); },
+    invite(id) {
+      const [iid, v] = id.split('|'), i = S.invites.find(x => x.id === iid), evId = 'inv-' + iid;
+      i.answer = i.answer === v ? null : v;
+      S.events = S.events.filter(e => e.id !== evId);
+      if (i.answer === 'ja') { S.events.push({ id: evId, date: i.date, start: i.start, end: i.end, title: i.title, who: [i.kid], place: i.place }); toast('Zugesagt und im Kalender eingetragen'); }
+      else if (i.answer === 'nein') toast('Abgesagt');
+    },
+    remind(id) {
+      const c = S.contracts.find(x => x.id === id); if (c.remind) return;
       c.remind = true;
-      var dl = addMonths(c.end, c.notice), rd = diff(day(0), dl) > 7 ? iso(new Date(parse(dl).getTime() - 7 * 86400000)) : day(0);
-      S.events.push({ id: uid(), date: rd, start: '09:00', end: '', title: 'Kündigen? ' + c.name + ' (Frist ' + fmt(dl) + ')', who: S.members.filter(function (m) { return m.role === 'eltern'; }).map(function (m) { return m.id; }) });
+      const dl = minusMonths(c.end, c.notice), rd = diff(day(0), dl) > 7 ? iso(new Date(parse(dl).getTime() - 7 * 86400000)) : day(0);
+      S.events.push({ id: uid(), date: rd, start: '09:00', end: '', title: 'Kündigen? ' + c.name, note: 'Frist endet am ' + fmt(dl), who: parents().map(m => m.id) });
       toast('Erinnerung am ' + fmt(rd) + ' im Kalender');
     },
-    pair: function (id) { S.pair[id] = String(Math.floor(100000 + Math.random() * 900000)).replace(/(\d{3})(\d{3})/, '$1 $2'); },
-    reset: function () { if (window.confirm('Alle Beispieldaten zurücksetzen?')) { S = seed(); toast('Zurückgesetzt'); } }
+    pair(id) { S.pair[id] = newCode(); },
+    reset() { if (window.confirm('Alle Beispieldaten zurücksetzen?')) { S = seed(); toast('Zurückgesetzt'); } }
   };
 
-  var F = {
-    event: function (fd) {
-      var who = fd.get('who');
-      S.events.push({ id: uid(), date: fd.get('date'), start: fd.get('start'), end: fd.get('end') || '', title: fd.get('title').trim(), who: who === 'all' ? S.members.map(function (m) { return m.id; }) : [who] });
-      toast('Termin eingetragen');
+  const F = {
+    event(fd) {
+      const who = fd.get('who');
+      S.events.push({ id: uid(), date: fd.get('date'), start: fd.get('start'), end: fd.get('end') || '', title: fd.get('title').trim(), place: (fd.get('place') || '').trim(), who: who === 'all' ? S.members.map(m => m.id) : [who] });
+      S.modal = null; toast('Termin eingetragen');
     },
-    task: function (fd) { S.tasks.push({ id: uid(), title: fd.get('title').trim(), who: fd.get('who'), due: fd.get('due'), done: false }); toast('Aufgabe an ' + member(fd.get('who')).name); },
-    shop: function (fd) { var n = addShop([fd.get('text').trim()], isParent() ? '' : 'von ' + me().name); toast(n ? 'Hinzugefügt' : 'Steht schon drauf'); },
-    wish: function (fd) { S.wishes.push({ id: uid(), who: S.current, text: fd.get('text').trim() }); toast('Wunsch gespeichert'); },
-    msg: function (fd, f) {
-      var g = S.groups.find(function (x) { return x.id === f.dataset.id; });
-      g.msgs.push({ from: isParent() ? 'Familie ' + me().name : me().name, role: isParent() ? 'Eltern' : 'Spieler', text: fd.get('text').trim(), when: 'gerade eben' });
+    task(fd) { S.tasks.push({ id: uid(), title: fd.get('title').trim(), who: fd.get('who'), due: fd.get('due'), done: false }); S.modal = null; toast('Aufgabe an ' + member(fd.get('who')).name); },
+    contract(fd) {
+      S.contracts.push({ id: uid(), name: fd.get('name').trim(), cat: (fd.get('cat') || '').trim() || 'Sonstiges', amount: parseFloat(fd.get('amount')) || 0, per: fd.get('per'), end: fd.get('end'), notice: parseInt(fd.get('notice'), 10), remind: false });
+      S.modal = null; toast('Vertrag gespeichert');
     },
-    contract: function (fd) {
-      S.contracts.push({ id: uid(), name: fd.get('name').trim(), cat: (fd.get('cat') || 'Sonstiges').trim() || 'Sonstiges', amount: parseFloat(fd.get('amount')) || 0, per: fd.get('per'), end: fd.get('end'), notice: parseInt(fd.get('notice'), 10), remind: false });
-      toast('Vertrag gespeichert');
+    shop(fd) { const n = addShop([fd.get('text').trim()], isParent() ? '' : 'von ' + me().name); toast(n ? 'Hinzugefügt' : 'Steht schon drauf'); },
+    wish(fd) { S.wishes.push({ id: uid(), who: S.current, text: fd.get('text').trim() }); toast('Wunsch gespeichert'); },
+    msg(fd, f) { const g = group(f.dataset.id); g.msgs.push({ from: isParent() ? me().name + ' ' + S.family : me().name, role: isParent() ? 'Eltern' : 'Spieler', text: fd.get('text').trim(), when: 'gerade eben', mine: true }); },
+    joincode(fd) {
+      const code = String(fd.get('code')).replace(/\D/g, '');
+      if (S.groups.some(g => g.joinCode === code)) { S.modal = { t: 'join', step: 1, err: 'Ihr seid dieser Gruppe bereits beigetreten.' }; return; }
+      if (!S.joinable[code]) { S.modal = { t: 'join', step: 1, err: 'Dieser Code ist ungültig oder abgelaufen. Fragt beim Gruppenverwalter nach.' }; return; }
+      S.modal = { t: 'join', step: 2, code };
+    },
+    joinconfirm(fd) {
+      const j = S.joinable[S.modal.code], kids = fd.getAll('kid');
+      if (!kids.length) { toast('Bitte ein Kind auswählen'); return; }
+      S.groups.push({ id: 'g' + uid(), joinCode: S.modal.code, name: j.name, typ: j.typ, icon: j.icon, gi: j.gi, kids, admin: false, lead: j.lead, pending: true, share: { phone: false, addr: false }, requests: [], families: j.families, msgs: [{ from: j.lead, role: 'Verwaltung', text: 'Herzlich willkommen! Termine und Helferlisten findet ihr in der Übersicht.', when: 'gerade eben' }], helpers: [{ id: uid(), task: 'Waffelstand Sankt-Martins-Fest', date: day(12), by: null }], kasse: { title: 'Mitgliedsbeitrag Förderverein, 24 € im Jahr', total: 41, paid: 30, ours: false } });
+      S.modal = { t: 'join', step: 3 };
+    },
+    creategroup(fd) {
+      const typ = fd.get('typ'), icon = { 'Kita-Gruppe': 'heart', Klasse: 'school', Mannschaft: 'ball', 'Förderverein': 'heart' }[typ] || 'users';
+      const g = { id: 'g' + uid(), name: fd.get('name').trim(), typ, icon, gi: 2, kids: [fd.get('kid')], admin: true, lead: me().name + ' ' + S.family, code: newCode(), share: { phone: false, addr: false }, requests: [], families: [], msgs: [], helpers: [], kasse: { title: 'Noch keine Kasse angelegt', total: 1, paid: 0, ours: false } };
+      S.groups.push(g); S.modal = { t: 'creategroup', step: 2, gid: g.id };
     }
   };
 
-  var C = {
-    who: function (el) { S.current = el.value; S.view = 'heute'; toast('Ansicht: ' + me().name); },
-    plan: function (el) { S.plan[el.dataset.id] = el.value; },
-    stufe: function (el) {
-      var m = member(el.dataset.id); m.stufe = parseInt(el.value, 10);
-      if (m.stufe === 1) delete S.pair[m.id];
-      toast(m.name + ': Stufe ' + m.stufe);
-    }
+  const C = {
+    plan(el) { S.plan[el.dataset.id] = el.value; },
+    stufe(el) { const m = member(el.dataset.id); m.stufe = parseInt(el.value, 10); if (m.stufe === 1) delete S.pair[m.id]; toast(m.name + ': Stufe ' + m.stufe); }
   };
 
-  document.addEventListener('click', function (e) {
-    var b = e.target.closest('[data-a]'); if (!b || b.disabled) return;
-    e.preventDefault();
-    var fn = A[b.dataset.a]; if (fn) { fn(b.dataset.id, b); render(); }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-a]'); if (!b || b.disabled) return;
+    const fn = A[b.dataset.a]; if (!fn) return;
+    if (b.dataset.a !== 'close-bg') e.preventDefault();
+    if (fn(b.dataset.id, b, e) === false) return;
+    render();
   });
-  document.addEventListener('submit', function (e) {
+  document.addEventListener('submit', e => {
     e.preventDefault();
-    var f = e.target, fn = F[f.dataset.f]; if (!fn) return;
+    const f = e.target, fn = F[f.dataset.f]; if (!fn) return;
     fn(new FormData(f), f); render();
+    const inp = document.querySelector(`form[data-f="${f.dataset.f}"] input[name="text"]`); if (inp && !S.modal) inp.focus();
   });
-  document.addEventListener('change', function (e) {
-    var el = e.target, fn = C[el.dataset.c]; if (!fn) return;
-    fn(el); render();
-  });
+  document.addEventListener('change', e => { const el = e.target, fn = C[el.dataset.c]; if (fn) { fn(el); render(); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.modal) { S.modal = null; render(); } });
 
   load();
   render();

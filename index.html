@@ -4,21 +4,33 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#2f5d50">
+<meta name="theme-color" content="#f7f3ec">
 <title>Haushaltszentrale Prototyp</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f5d50'/%3E%3Cpath d='M8 17l8-7 8 7v8H8z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%232f6a55'/%3E%3Cpath d='M8 16.5l8-6.5 8 6.5V24a1 1 0 0 1-1 1h-4.5v-5h-5v5H9a1 1 0 0 1-1-1z' fill='%23fffdf9'/%3E%3Ccircle cx='23' cy='9' r='3' fill='%23e08a5f'/%3E%3C/svg%3E">
+<link rel="preload" href="fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header class="top">
-  <div class="brand">
-    <span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32" width="30" height="30"><rect width="32" height="32" rx="8" fill="currentColor"/><path d="M8 17l8-7 8 7v8H8z" fill="#fff"/></svg></span>
-    <div><strong>Haushaltszentrale</strong><small>Prototyp mit Beispieldaten</small></div>
+<div class="app">
+  <aside class="side" aria-label="Seitenleiste">
+    <div class="brand"><span class="logo" aria-hidden="true"></span><div><strong>Haushaltszentrale</strong><small>Prototyp</small></div></div>
+    <nav id="sidenav" class="sidenav" aria-label="Hauptnavigation"></nav>
+    <div class="side-foot">
+      <div class="side-label">Ansicht als</div>
+      <div id="sidewho" class="whobar"></div>
+      <p class="side-note">Fiktive Beispieldaten, nur in diesem Browser gespeichert.</p>
+    </div>
+  </aside>
+  <div class="content">
+    <header class="mtop">
+      <div class="brand"><span class="logo" aria-hidden="true"></span><div><strong>Haushaltszentrale</strong><small>Prototyp</small></div></div>
+      <div id="topwho" class="whobar"></div>
+    </header>
+    <main id="main" tabindex="-1"></main>
   </div>
-  <label class="who"><span class="sr">Ansicht als</span><select id="who" data-c="who"></select></label>
-</header>
-<main id="main" tabindex="-1"></main>
-<nav id="nav" class="nav" aria-label="Hauptnavigation"></nav>
+</div>
+<nav id="bnav" class="bnav" aria-label="Navigation"></nav>
+<div id="modal"></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script src="app.js"></script>
 </body>
